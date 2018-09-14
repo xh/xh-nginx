@@ -7,6 +7,6 @@ This repo contains a minimal Dockerfile to build the base nginx container, which
 This image is [available on Docker Hub](https://hub.docker.com/r/xhio/xh-nginx/).
 
 ----
-:mailbox: :phone: :earth_americas: info@xh.io | https://xh.io/contact
+📫☎️🌎 info@xh.io | https://xh.io/contact
 
 Copyright © 2018 Extremely Heavy Industries Inc.
