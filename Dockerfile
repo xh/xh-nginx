@@ -1,4 +1,4 @@
-FROM nginx:latest
+FROM nginx
 
 # Default top-level config file (from official nginx image) - will include all sub-configs in $XH_NGINX_CONFIG_PATH.
 ENV XH_NGINX_CONFIG_FILE=/etc/nginx/nginx.conf
