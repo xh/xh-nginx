@@ -8,12 +8,16 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 
 ## next - under development
 
+* nginx `latest` (version dependent on build time)
+
+## v2.1.0 / latest - 2022-01-14
+
 * Ensure UTF8 charset spec'd in header, including for CSS files.
   See [xh-nginx/9](https://github.com/xh/xh-nginx/issues/9) - intermittent rendering issue with
   icons.
-* nginx `latest` (version dependent on build time)
+* nginx `v1.21.5`
 
-## v2.0.0 / latest
+## v2.0.0
 
 * Generate and pass through to proxied calls a `Jespa-Connection-Id` header, based on the source IP
   address. This is required for apps using the Jespa library for NTLMv2 SSO to properly track
