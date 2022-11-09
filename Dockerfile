@@ -26,4 +26,5 @@ COPY includes $XH_NGINX_CONFIG_INCL_PATH/
 
 # Custom run command to point nginx at our $XH_NGINX_CONFIG_FILE variable for its config file.
 # Note this is run in a shell to ensure the environment variable is expanded at runtime.
-CMD ["sh", "-c", "nginx -g 'daemon off;' -c $XH_NGINX_CONFIG_FILE"]
+#ENTRYPOINT ["/bin/sh"]
+#CMD ["/bin/sh", "-c", "nginx -g 'daemon off;' -c $XH_NGINX_CONFIG_FILE"]
