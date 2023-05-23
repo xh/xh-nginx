@@ -10,7 +10,11 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 
 * nginx `latest` (version dependent on build time)
 
-## v2.1.0 / latest - 2022-01-14
+## v2.2.0 / latest - 2023-05-23
+
+* nginx `v1.23.4`
+
+## v2.1.0 - 2022-01-14
 
 * Ensure UTF8 charset spec'd in header, including for CSS files.
   See [xh-nginx/9](https://github.com/xh/xh-nginx/issues/9) - intermittent rendering issue with
