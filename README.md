@@ -9,9 +9,9 @@ deployments with additional configurations.
 ## Nginx version and Docker tags
 
 | Branch  | nginx Version | Docker Tag(s)     |
-|---------|---------------|-------------------|
-| master  | 1.23.4        | `X.Y.Z`, `latest` |
-| develop | latest        | `next`            |
+|---------|:-------------:|-------------------|
+| master  |    1.23.4     | `X.Y.Z`, `latest` |
+| develop |    latest     | `next`            |
 
 This image is [available on Docker Hub](https://hub.docker.com/r/xhio/xh-nginx/).
 
