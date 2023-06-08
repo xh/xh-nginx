@@ -1,6 +1,6 @@
 # Changelog
 
-Note that the `next` tag is mutable and is rebuilt regularly with any updates to this project and 
+Note that the `next` tag is mutable and is rebuilt regularly with any updates to this project and
 on a weekly schedule (to pick up ongoing updates to the official `nginx:latest` source image).
 
 Versioned builds are immutable and have locked in a given set of defaults from this project as well
@@ -9,6 +9,9 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 ## next - under development
 
 * nginx `latest` (version dependent on build time)
+* Remove install of dnsutils, procps, and vim. These packages increased the size of the image and can introduce security
+  vulnerabilities, and it is unclear if they were ever useful in an interactive shell session. Please let XH know if you
+  were relying on these for any purpose.
 
 ## v2.2.0 / latest - 2023-05-23
 
