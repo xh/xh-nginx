@@ -9,20 +9,24 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 ## next - under development
 
 * nginx `latest` (version dependent on build time)
+
+## v2.3.0 / latest - 2023-06-16
+
+* nginx `1.24.0`
 * Remove install of dnsutils, procps, and vim. These packages increased the size of the image and can introduce security
   vulnerabilities, and it is unclear if they were ever useful in an interactive shell session. Please let XH know if you
   were relying on these for any purpose.
 
-## v2.2.0 / latest - 2023-05-23
+## v2.2.0 - 2023-05-23
 
-* nginx `v1.23.4`
+* nginx `1.23.4`
 
 ## v2.1.0 - 2022-01-14
 
 * Ensure UTF8 charset spec'd in header, including for CSS files.
   See [xh-nginx/9](https://github.com/xh/xh-nginx/issues/9) - intermittent rendering issue with
   icons.
-* nginx `v1.21.5`
+* nginx `1.21.5`
 
 ## v2.0.0
 
@@ -34,9 +38,9 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 * Add basic useragent parsing to set `$is_mobile` and `$is_desktop` variables for use within
   app-level directives (e.g. redirecting from / to the correct platform-specific entry URI).
 * Set `proxy_cookie_path` directive to `Secure` but also allow cross-site access.
-* nginx `v1.21.0`
+* nginx `1.21.0`
 
 ## v1.0.0
 
 * Initial versioned release of the base image.
-* nginx `v1.19.5`
+* nginx `1.19.5`
