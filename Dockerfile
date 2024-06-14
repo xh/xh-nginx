@@ -1,4 +1,4 @@
-FROM nginx:latest
+FROM nginx:1.26.1
 
 # Top-level config file, defaulted to the one shipped by the official nginx image. That default
 # config will include all sub-configs in $XH_NGINX_CONFIG_PATH. Apps can use this default file and

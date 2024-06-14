@@ -8,8 +8,9 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 
 ## next - under development
 
-* nginx `latest` (version dependent on build time)
-
+* nginx `1.26.1`
+* add `/blank` & `/blank/` locations to serve a blank page, used to for no-op popup redirects from Oauth.
+  
 ## v2.3.0 / latest - 2023-06-16
 
 * nginx `1.24.0`
