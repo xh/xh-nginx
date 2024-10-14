@@ -14,5 +14,6 @@ ENV XH_NGINX_CONTENT_PATH=/usr/share/nginx/html
 RUN rm $XH_NGINX_CONFIG_PATH/default.conf && rm $XH_NGINX_CONTENT_PATH/*
 
 # Copy in overridden nginx.conf, xh.conf, and includes.
-COPY nginx.conf xh.conf $XH_NGINX_CONFIG_PATH/
+COPY nginx.conf /etc/nginx/
+COPY xh.conf $XH_NGINX_CONFIG_PATH/
 COPY includes $XH_NGINX_CONFIG_INCL_PATH/
