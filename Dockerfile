@@ -1,11 +1,4 @@
-FROM fholzer/nginx-brotli
-
-# Top-level config file, defaulted to the one shipped by the official nginx image. That default
-# config will include all sub-configs in $XH_NGINX_CONFIG_PATH. Apps can use this default file and
-# copy their own app-specific partial configs into $XH_NGINX_CONFIG_PATH (most common), or they can
-# replace it completely for more control (e.g. to switch between different configs at runtime).
-# NOTE - apps that do replace should ensure they continue to import $XH_NGINX_CONFIG_PATH/xh.conf.
-ENV XH_NGINX_CONFIG_FILE=/etc/nginx/nginx.conf
+FROM fholzer/nginx-brotli:v1.26.2
 
 # Path to host app-specific configs + our general xh.conf. All configs copied in here are included
 # by the standard $XH_NGINX_CONFIG_FILE (above) or could be selectively included by a custom file.
@@ -20,11 +13,6 @@ ENV XH_NGINX_CONTENT_PATH=/usr/share/nginx/html
 # Clear out default nginx config and welcome page
 RUN rm $XH_NGINX_CONFIG_PATH/default.conf && rm $XH_NGINX_CONTENT_PATH/*
 
-# Copy in custom config / partials
-COPY xh.conf $XH_NGINX_CONFIG_PATH/
+# Copy in overridden nginx.conf, xh.conf, and includes.
+COPY nginx.conf xh.conf $XH_NGINX_CONFIG_PATH/
 COPY includes $XH_NGINX_CONFIG_INCL_PATH/
-
-# Custom run command to point nginx at our $XH_NGINX_CONFIG_FILE variable for its config file.
-# Note this is run in a shell to ensure the environment variable is expanded at runtime.
-#ENTRYPOINT ["/bin/sh"]
-#CMD ["/bin/sh", "-c", "nginx -g 'daemon off;' -c $XH_NGINX_CONFIG_FILE"]

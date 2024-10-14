@@ -1,12 +1,14 @@
 # Hoist Dockerfile: xh-nginx
 
-[Hoist React](https://github.com/xh/hoist-react/) apps can be deployed
-via Docker containers running Tomcat (for Hoist's Grails based back-end)
-and nginx (to serve compiled client JS/CSS and other assets).
+This branch of the `xh-nginx` project is based on an alternate nginx image - `fholzer/nginx-brotli` - to enable the 
+use of the Brotli compression algorithm. Due to the alternate base image, this branch maintains its own set of tags
+and versioning, separate from the main `xh-nginx` project.
 
-This repo contains a minimal Dockerfile to build the base nginx
-container, which can be used by app-specific Docker deployments with
-additional configurations.
+## Nginx version and Docker tags
+
+| Branch | nginx Version | Docker Tag(s)                   |
+|--------|:-------------:|---------------------------------|
+| brotli |    1.26.2     | `1.0.0-brotli`, `latest-brotli` |
 
 This image is
 [available on Docker Hub](https://hub.docker.com/r/xhio/xh-nginx/).
@@ -15,4 +17,4 @@ This image is
 
 📫☎️🌎 info@xh.io | <https://xh.io/contact>
 
-Copyright © 2019 Extremely Heavy Industries Inc.
+Copyright © 2024 Extremely Heavy Industries Inc.
