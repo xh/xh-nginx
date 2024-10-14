@@ -10,7 +10,8 @@ deployments with additional configurations.
 
 | Branch  | nginx Version | Docker Tag(s)     |
 |---------|:-------------:|-------------------|
-| master  |    1.24.0     | `X.Y.Z`, `latest` |
+| master  |    1.27.2     | `2.4.0`, `latest` |
+|         |    1.24.0     | `2.3.0`           |
 | develop |    latest     | `next`            |
 
 This image is [available on Docker Hub](https://hub.docker.com/r/xhio/xh-nginx/).
@@ -19,4 +20,4 @@ This image is [available on Docker Hub](https://hub.docker.com/r/xhio/xh-nginx/)
 
 📫☎️🌎 info@xh.io | <https://xh.io/contact>
 
-Copyright © 2023 Extremely Heavy Industries Inc.
+Copyright © 2024 Extremely Heavy Industries Inc.

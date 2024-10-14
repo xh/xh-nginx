@@ -10,7 +10,12 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 
 * nginx `latest` (version dependent on build time)
 
-## v2.3.0 / latest - 2023-06-16
+## v2.4.0 / latest - 2024-10-14
+
+* nginx `1.27.2`
+* Set `client_max_body_size 100m` - match increased cap on client POST sizes from `xh-tomcat`.
+
+## v2.3.0 - 2023-06-16
 
 * nginx `1.24.0`
 * Remove install of dnsutils, procps, and vim. These packages increased the size of the image and can introduce security
