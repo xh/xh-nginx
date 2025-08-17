@@ -9,6 +9,9 @@ as the latest nginx version at the time of the build (recorded in the log entrie
 ## next - under development
 
 * nginx `latest` (version dependent on build time)
+* Set updated `no-cache, no-store, must-revalidate` cache control header value for `$expires` var when serving HTML 
+  content (notably `index.html` app entry-points). Behavior should be same as prior use of `epoch`, although potentially 
+  more reliable with this syntax.
 
 ## 2.4.0 / latest - 2024-10-14
 
