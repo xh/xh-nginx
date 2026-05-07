@@ -1,4 +1,4 @@
-FROM fholzer/nginx-brotli:v1.26.2
+FROM fholzer/nginx-brotli:v1.30.0
 
 # Path to host app-specific configs + our general xh.conf. All configs copied in here are included
 # by the standard $XH_NGINX_CONFIG_FILE (above) or could be selectively included by a custom file.
