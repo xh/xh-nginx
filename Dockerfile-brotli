@@ -1,4 +1,6 @@
-FROM fholzer/nginx-brotli:v1.30.0
+# See buildRelease for the matrix of published NGINX_VERSION values.
+ARG NGINX_VERSION=1.30.0
+FROM fholzer/nginx-brotli:v${NGINX_VERSION}
 
 # Path to host app-specific configs + our general xh.conf. All configs copied in here are included
 # by the standard $XH_NGINX_CONFIG_FILE (above) or could be selectively included by a custom file.

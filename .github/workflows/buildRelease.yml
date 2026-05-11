@@ -1,0 +1,121 @@
+name: Build Release
+
+# Publishes a numbered xhio/xh-nginx release. Manually triggered from master
+# (or a hotfix branch). Validates the release version, builds the release
+# variants in parallel against the pinned nginx patch version in the matrix
+# below, pushes to Docker Hub with both the immutable `<xh-release><suffix>`
+# tag and the floating `latest<suffix>` tag, then tags the commit and creates
+# a GitHub release.
+# See README / CHANGELOG for the currently supported variants.
+#
+# To release with a newer nginx patch: bump the `nginx-version` entries in
+# the matrix below (and keep the Dockerfile / Dockerfile-brotli NGINX_VERSION
+# ARG defaults in sync for local builds), update CHANGELOG.md in a normal PR,
+# merge to master, then dispatch this workflow.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release Version (e.g. 3.0.0)'
+        required: true
+        type: string
+      is-hotfix:
+        description: 'As hotfix. Check when releasing a hotfix to a version other than the latest.'
+        required: true
+        default: false
+        type: boolean
+
+# Run release builds one-by-one, but never cancel a release in flight.
+concurrency:
+  group: build-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    # Guards against accidental release from develop. Requires master for standard
+    # releases and a branch other than master (or develop) when is-hotfix is set.
+    if: github.ref != 'refs/heads/develop' && ((github.ref == 'refs/heads/master') != inputs.is-hotfix)
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Checkout is required to be called with `fetch-depth: 0` and `fetch-tags: true`.
+      - name: Validate release version
+        uses: xh/hoist-dev-utils/.github/actions/validate-release-version@master
+        with:
+          version: ${{ inputs.version }}
+          is-hotfix: ${{ inputs.is-hotfix }}
+
+  build:
+    needs: validate
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # Supported release variants: the default nginx image and the
+      # fholzer/nginx-brotli image. Each entry pins an exact patch via
+      # `nginx-version` and publishes `<version><suffix>` + `latest<suffix>`.
+      # Keep the Dockerfile / Dockerfile-brotli NGINX_VERSION ARG defaults
+      # in sync for local builds.
+      matrix:
+        variant:
+          - { dockerfile: Dockerfile,        nginx-version: "1.30.0", tag-suffix: "" }
+          - { dockerfile: Dockerfile-brotli, nginx-version: "1.30.0", tag-suffix: "-brotli" }
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        env:
+          DOCKERFILE: ${{ matrix.variant.dockerfile }}
+          NGINX_VERSION: ${{ matrix.variant.nginx-version }}
+          VERSION_TAG: xhio/xh-nginx:${{ inputs.version }}${{ matrix.variant.tag-suffix }}
+          LATEST_TAG: xhio/xh-nginx:latest${{ matrix.variant.tag-suffix }}
+        run: |
+          docker build \
+            --pull \
+            --build-arg NGINX_VERSION="$NGINX_VERSION" \
+            -f "$DOCKERFILE" \
+            -t "$VERSION_TAG" \
+            -t "$LATEST_TAG" \
+            .
+          docker push "$VERSION_TAG"
+          docker push "$LATEST_TAG"
+
+  release:
+    needs: build
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Checkout is required to be called with `fetch-depth: 0` and `fetch-tags: true`.
+      - name: Create tag and GitHub release
+        uses: xh/hoist-dev-utils/.github/actions/create-tag-and-github-release@master
+        with:
+          version: ${{ inputs.version }}
+          is-hotfix: ${{ inputs.is-hotfix }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

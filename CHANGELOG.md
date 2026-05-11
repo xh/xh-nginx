@@ -13,15 +13,30 @@ with a separate `1.x-brotli` version line — see entries below.
 
 ## next - under development
 
-* nginx `latest` (version dependent on build time)
-* Updated cache control header value for `$expires` var to `no-cache, no-store, must-revalidate` when serving HTML 
-  content (notably `index.html` app entry-points). Behavior should be same as prior use of `epoch`, although potentially 
+* nginx `1.30` (latest 1.30 patch at build time)
+
+## 3.0.0 / latest + 3.0.0-brotli / latest-brotli - 2026-05-11
+
+* nginx `1.30.0` (both variants).
+* First release on the unified version line. The brotli variant is now built from `develop` alongside the default
+  image; both share this xh-nginx version.
+* Updated cache control header value for `$expires` var to `no-cache, no-store, must-revalidate` when serving HTML
+  content (notably `index.html` app entry-points). Behavior should be same as prior use of `epoch`, although potentially
   more reliable with this syntax.
 * Raised `gzip_comp_level` from 2 to 4, for enhanced compression of larger JSON payloads.
+
+### 💥 Breaking Changes
+* The brotli variant is no longer published from a separate `brotli` branch with its own `1.x-brotli` version line. The
+  brotli image is now built from `develop` alongside the default image and shares the unified xh-nginx version. Apps
+  pulling `1.1.0-brotli` should switch to `3.0.0-brotli` (or stay on `latest-brotli`, which now floats to the unified
+  release line). Legacy `1.x-brotli` tags remain on Docker Hub but will no longer be updated.
+* Released images are now pinned to a specific upstream nginx patch (`1.30.0` for 3.0.0) instead of tracking
+  `nginx:latest`. Apps that want floating-latest behavior should switch from `latest` to `next`.
 
 ## 1.1.0-brotli / latest-brotli - 2026-05-07
 
 * nginx `1.30.0`
+* Final release on the legacy `1.x-brotli` line. Superseded by `3.0.0-brotli`.
 
 ## 2.4.0 / latest - 2024-10-14
 
