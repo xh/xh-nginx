@@ -1,4 +1,4 @@
-name: Build next images
+name: Build Next
 
 # Publishes the `next` and `next-brotli` xhio/xh-nginx snapshot tags. Rebuilt
 # on every push to develop and weekly so they pick up upstream base image
