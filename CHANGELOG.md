@@ -1,23 +1,47 @@
 # Changelog
 
-Note that the `next` tag is mutable and is rebuilt regularly with any updates to this project and
-on a weekly schedule (to pick up ongoing updates to the official `nginx:latest` source image).
+Note that the `next` and `next-brotli` tags are mutable and are rebuilt regularly with any updates
+to this project and on a weekly schedule (to pick up ongoing updates to the upstream `nginx` and
+`fholzer/nginx-brotli` source images).
 
 Versioned builds are immutable and have locked in a given set of defaults from this project as well
 as the latest nginx version at the time of the build (recorded in the log entries below).
 
+The `*-brotli` tags publish a variant built on `fholzer/nginx-brotli` to enable Brotli compression
+alongside gzip. Prior to the unification on `develop`, this variant lived on its own `brotli` branch
+with a separate `1.x-brotli` version line — see entries below.
+
 ## next - under development
 
-* nginx `latest` (version dependent on build time)
-* Updated cache control header value for `$expires` var to `no-cache, no-store, must-revalidate` when serving HTML 
-  content (notably `index.html` app entry-points). Behavior should be same as prior use of `epoch`, although potentially 
+* nginx `1.30` tags (`next`, `next-brotli`)
+
+## 3.0.0 - 2026-05-11
+
+* nginx `1.30.0` tags (`3.0.0`, `latest`,  `3.0.0-brotli`, `latest-brotli`).
+* Updated cache control header value for `$expires` var to `no-cache, no-store, must-revalidate` when serving HTML
+  content (notably `index.html` app entry-points). Behavior should be same as prior use of `epoch`, although potentially
   more reliable with this syntax.
-* Raised `gzip_comp_level` from 2 to 4, for enhanced compression of larger JSON payloads. 
+* Raised `gzip_comp_level` from 2 to 4, for enhanced compression of larger JSON payloads.
+
+### 💥 Breaking Changes
+* The brotli variant is no longer published from a separate `brotli` branch with its own `1.x-brotli` version line. The
+  brotli image is now built from `develop` alongside the default image and shares the unified xh-nginx version and xh 
+  tag release version. Apps pulling `1.1.0-brotli` should switch to `3.0.0-brotli` (or stay on `latest-brotli`, which 
+  now floats to the unified release line). Legacy `1.x-brotli` tags remain on Docker Hub but will no longer be updated.
+
+## 1.1.0-brotli / latest-brotli - 2026-05-07
+
+* nginx `1.30.0`
 
 ## 2.4.0 / latest - 2024-10-14
 
 * nginx `1.27.2`
 * Set `client_max_body_size 100m` - match increased cap on client POST sizes from `xh-tomcat`.
+
+## 1.0.0-brotli - 2024-10-14
+
+* Initial versioned release of the Brotli-enabled image.
+* nginx `1.26.2`
 
 ## 2.3.0 - 2023-06-16
 

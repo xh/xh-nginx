@@ -1,4 +1,6 @@
-FROM nginx:latest
+# See buildRelease for the matrix of published NGINX_VERSION values.
+ARG NGINX_VERSION=1.30.0
+FROM nginx:${NGINX_VERSION}
 
 # Top-level config file, defaulted to the one shipped by the official nginx image. That default
 # config will include all sub-configs in $XH_NGINX_CONFIG_PATH. Apps can use this default file and

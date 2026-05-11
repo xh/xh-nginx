@@ -1,0 +1,55 @@
+name: Build next images
+
+# Publishes the `next` and `next-brotli` xhio/xh-nginx snapshot tags. Rebuilt
+# on every push to develop and weekly so they pick up upstream base image
+# patches. See README / CHANGELOG for the currently supported variants.
+
+on:
+  push:
+    branches: [develop]
+  schedule:
+    # 01:00 UTC Thursday ≈ Wed 20:00 EST / 21:00 EDT.
+    # Approximates the prior TeamCity "Wednesday 20:00 America/New_York" trigger
+    # (GitHub Actions cron is UTC-only with no DST awareness).
+    - cron: '0 1 * * 4'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: buildNext-${{ matrix.variant.tag-suffix }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      # Supported variants: the default nginx image and the fholzer/nginx-brotli
+      # variant. Both use the floating major.minor `1.30` tag so they pick up
+      # upstream patches automatically.
+      matrix:
+        variant:
+          - { nginx-version: "1.30", dockerfile: Dockerfile, tag-suffix: "" }
+          - { nginx-version: "1.30", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        env:
+          DOCKERFILE: ${{ matrix.variant.dockerfile }}
+          NGINX_VERSION: ${{ matrix.variant.nginx-version }}
+          TAG_SUFFIX: ${{ matrix.variant.tag-suffix }}
+        run: |
+          TAG="xhio/xh-nginx:next${TAG_SUFFIX}"
+          docker build --pull \
+            --build-arg NGINX_VERSION="$NGINX_VERSION" \
+            -f "$DOCKERFILE" \
+            -t "$TAG" .
+          docker push "$TAG"
