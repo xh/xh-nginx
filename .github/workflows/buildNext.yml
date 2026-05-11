@@ -30,8 +30,8 @@ jobs:
       # upstream patches automatically.
       matrix:
         variant:
-          - { dockerfile: Dockerfile,        nginx-version: "1.30", tag-suffix: "" }
-          - { dockerfile: Dockerfile-brotli, nginx-version: "1.30", tag-suffix: "-brotli" }
+          - { nginx-version: "1.30", dockerfile: Dockerfile, tag-suffix: "" }
+          - { nginx-version: "1.30", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
     steps:
       - uses: actions/checkout@v6
 

@@ -69,8 +69,8 @@ jobs:
       # in sync for local builds.
       matrix:
         variant:
-          - { dockerfile: Dockerfile,        nginx-version: "1.30.0", tag-suffix: "" }
-          - { dockerfile: Dockerfile-brotli, nginx-version: "1.30.0", tag-suffix: "-brotli" }
+          - { nginx-version: "1.30.0", dockerfile: Dockerfile, tag-suffix: "" }
+          - { nginx-version: "1.30.0", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
 
     steps:
       - uses: actions/checkout@v6
