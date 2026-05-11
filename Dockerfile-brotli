@@ -13,7 +13,9 @@ ENV XH_NGINX_CONTENT_PATH=/usr/share/nginx/html
 # Clear out default nginx config and welcome page
 RUN rm $XH_NGINX_CONFIG_PATH/default.conf && rm $XH_NGINX_CONTENT_PATH/*
 
-# Copy in overridden nginx.conf, xh.conf, and includes.
-COPY nginx.conf /etc/nginx/
-COPY xh.conf $XH_NGINX_CONFIG_PATH/
+# Copy in overridden nginx-brotli.conf (brotli-flavored), xh-brotli.conf (brotli-flavored, with
+# gzip directives commented out since they are set at the http level by nginx-brotli.conf above),
+# and shared includes.
+COPY nginx-brotli.conf /etc/nginx/nginx.conf
+COPY xh-brotli.conf $XH_NGINX_CONFIG_PATH/xh.conf
 COPY includes $XH_NGINX_CONFIG_INCL_PATH/
