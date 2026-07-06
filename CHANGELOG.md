@@ -13,11 +13,14 @@ with a separate `1.x-brotli` version line — see entries below.
 
 ## next - under development
 
-* nginx `1.30` tags (`next`, `next-brotli`)
+* nginx `1.31` tags (`next`, `next-brotli`)
+
+## 3.1.0 - 2026-07-06
+* nginx `1.31.0` tags (`3.1.0`, `latest`, `3.1.0-brotli`, `latest-brotli`).
 
 ## 3.0.0 - 2026-05-11
 
-* nginx `1.30.0` tags (`3.0.0`, `latest`,  `3.0.0-brotli`, `latest-brotli`).
+* nginx `1.30.0` tags (`3.0.0`, `latest`, `3.0.0-brotli`, `latest-brotli`).
 * Updated cache control header value for `$expires` var to `no-cache, no-store, must-revalidate` when serving HTML
   content (notably `index.html` app entry-points). Behavior should be same as prior use of `epoch`, although potentially
   more reliable with this syntax.

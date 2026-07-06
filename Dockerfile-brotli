@@ -1,5 +1,5 @@
 # See buildRelease for the matrix of published NGINX_VERSION values.
-ARG NGINX_VERSION=1.30.0
+ARG NGINX_VERSION=1.31.0
 FROM fholzer/nginx-brotli:v${NGINX_VERSION}
 
 # Path to host app-specific configs + our general xh.conf. All configs copied in here are included

@@ -26,12 +26,12 @@ jobs:
     strategy:
       fail-fast: false
       # Supported variants: the default nginx image and the fholzer/nginx-brotli
-      # variant. Both use the floating major.minor `1.30` tag so they pick up
-      # upstream patches automatically.
+      # variant. Both use the floating major.minor tag so they pick up upstream
+      # patches automatically.
       matrix:
         variant:
-          - { nginx-version: "1.30", dockerfile: Dockerfile, tag-suffix: "" }
-          - { nginx-version: "1.30", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
+          - { nginx-version: "1.31", dockerfile: Dockerfile, tag-suffix: "" }
+          - { nginx-version: "1.31", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
     steps:
       - uses: actions/checkout@v7
 
