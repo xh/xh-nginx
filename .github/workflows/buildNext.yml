@@ -33,7 +33,7 @@ jobs:
           - { nginx-version: "1.30", dockerfile: Dockerfile, tag-suffix: "" }
           - { nginx-version: "1.30", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
