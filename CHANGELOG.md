@@ -15,6 +15,10 @@ with a separate `1.x-brotli` version line — see entries below.
 
 * nginx `1.31` tags (`next`, `next-brotli`)
 
+## 3.2.0 - 2026-07-27
+
+* nginx `1.31.2` tags (`3.2.0`, `latest`, `3.2.0-brotli`, `latest-brotli`).
+
 ## 3.1.0 - 2026-07-06
 * nginx `1.31.0` tags (`3.1.0`, `latest`, `3.1.0-brotli`, `latest-brotli`).
 
