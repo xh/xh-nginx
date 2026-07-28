@@ -18,6 +18,13 @@ with a separate `1.x-brotli` version line — see entries below.
 ## 3.2.0 - 2026-07-27
 
 * nginx `1.31.2` tags (`3.2.0`, `latest`, `3.2.0-brotli`, `latest-brotli`).
+* Added `text/plain` and `application/x-ndjson` to the compressible MIME types for both gzip and brotli. Notably this
+  ensures that NDJSON responses streamed by Hoist (e.g. via `renderNdjson`) are compressed.
+* Fixed gzip in the `-brotli` variant, where it had been enabled but left on nginx defaults - i.e. `gzip_proxied off`
+  and `gzip_types text/html` - and so was in practice compressing nothing proxied back from the app server. Clients
+  that do not advertise `br` (and pre-compression negotiation in general) now get the same gzip behavior as the
+  standard variant. The gzip tuning + type list and the matching `brotli_types` list are now set together in the
+  brotli variant's `xh.conf` to keep the two compressors in sync.
 
 ## 3.1.0 - 2026-07-06
 * nginx `1.31.0` tags (`3.1.0`, `latest`, `3.1.0-brotli`, `latest-brotli`).
