@@ -16,8 +16,8 @@ below.
 |----------------|--------------------------------|---------------------------------|
 | next           | `nginx:1.31`                   | `next`                          |
 | next-brotli    | `fholzer/nginx-brotli:v1.31`   | `next-brotli`                   |
-| release        | `nginx:1.31.0`                 | `latest`, `3.1.0`               |
-| release-brotli | `fholzer/nginx-brotli:v1.31.0` | `latest-brotli`, `3.1.0-brotli` |
+| release        | `nginx:1.31.2`                 | `latest`, `3.2.0`               |
+| release-brotli | `fholzer/nginx-brotli:v1.31.2` | `latest-brotli`, `3.2.0-brotli` |
 
 `next` / `next-brotli` tags are fully mutable. Every variant is rebuilt on every commit to `develop` and on a weekly schedule
 (Wednesday ~20:00 ET) so they pick up upstream patches to the floating major.minor base image tags. They are intended
