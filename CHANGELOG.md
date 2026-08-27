@@ -15,6 +15,14 @@ with a separate `1.x-brotli` version line — see entries below.
 
 * nginx `1.31` tags (`next`, `next-brotli`)
 
+## 3.3.0 - 2026-08-27
+
+* nginx `1.31.3` tags (`3.3.0`, `latest`, `3.3.0-brotli`, `latest-brotli`).
+* Set `gzip_vary on` in both variants, so that compressed responses carry a `Vary: Accept-Encoding`
+  header. Without it, a shared cache in front of nginx could store a compressed response and later
+  serve it to a client that had not advertised support for that encoding. Note this one directive
+  covers gzip and brotli alike - `ngx_brotli` provides no `brotli_vary` equivalent.
+
 ## 3.2.0 - 2026-07-27
 
 * nginx `1.31.2` tags (`3.2.0`, `latest`, `3.2.0-brotli`, `latest-brotli`).
