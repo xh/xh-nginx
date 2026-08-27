@@ -22,6 +22,9 @@ with a separate `1.x-brotli` version line — see entries below.
   header. Without it, a shared cache in front of nginx could store a compressed response and later
   serve it to a client that had not advertised support for that encoding. Note this one directive
   covers gzip and brotli alike - `ngx_brotli` provides no `brotli_vary` equivalent.
+* Dropped the redundant `text/html` entry from `charset_types` in both variants. nginx always
+  includes that type itself, so listing it logged a `duplicate MIME type` warning on every
+  container start. No change in behavior - `text/html` responses are still charset-tagged.
 
 ## 3.2.0 - 2026-07-27
 
