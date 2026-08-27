@@ -25,6 +25,20 @@ with a separate `1.x-brotli` version line — see entries below.
 * Dropped the redundant `text/html` entry from `charset_types` in both variants. nginx always
   includes that type itself, so listing it logged a `duplicate MIME type` warning on every
   container start. No change in behavior - `text/html` responses are still charset-tagged.
+* Added JS source map (`.map`) support to both variants. nginx's stock `mime.types` has no entry
+  for the extension, so maps were served as `application/octet-stream` - which is both the wrong
+  type and, because it is not in the gzip/brotli type lists, entirely uncompressed. They are now
+  mapped to `application/json` via an additive `types` block, so they compress like any other
+  JSON payload.
+* Source maps are now cached indefinitely. Maps are content-hashed alongside the bundle they
+  describe, but previously fell through the `$expires` content-type map and were served with no
+  `Cache-Control` at all. `$expires` now also keys off the request URI to give `.map` requests a
+  `max` bucket. Note this is deliberately *not* done by giving `application/json` a bucket, which
+  would also pin the unhashed PWA manifests Hoist apps emit; and the rule is scoped to responses
+  served from disk, so a proxied API path ending in `.map` is unaffected.
+
+  Apps carrying a local `location ~ \.map$` block in their own `app.conf` to work around the above
+  can drop it once on this release.
 
 ## 3.2.0 - 2026-07-27
 
