@@ -89,15 +89,10 @@ jobs:
           VERSION_TAG: xhio/xh-nginx:${{ inputs.version }}${{ matrix.variant.tag-suffix }}
           LATEST_TAG: xhio/xh-nginx:latest${{ matrix.variant.tag-suffix }}
         run: |
-          BUILD_ARGS=(--target "$TARGET" -t "$VERSION_TAG" -t "$LATEST_TAG")
-
-          # Build and load locally first, to check nginx runs and log its version before pushing.
-          docker buildx build --pull --load "${BUILD_ARGS[@]}" .
-          docker run --rm --entrypoint nginx "$VERSION_TAG" -v
-
-          # Rebuild from cache and push both tags with SBOM and provenance attestations attached.
-          # A plain `docker push` of the loaded image would drop them.
-          docker buildx build --push --sbom=true --provenance=mode=max "${BUILD_ARGS[@]}" .
+          # Build, smoke test, push with attestations, and tag only once the pushed image is
+          # confirmed to be the tested one. See the script for details. Builds the Dockerfile's
+          # pinned NGINX_VERSION.
+          .github/scripts/build-image.sh "$TARGET" "$VERSION_TAG" "$LATEST_TAG"
 
   release:
     needs: build

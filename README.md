@@ -63,7 +63,9 @@ docker build --target brotli -t xh-nginx-local:brotli .           # brotli
 docker build --build-arg NGINX_VERSION=1.31 -t xh-nginx-local .   # float on a major.minor, as `next` does
 ```
 
-GitHub Actions workflows live in [`.github/workflows/`](./.github/workflows):
+GitHub Actions workflows live in [`.github/workflows/`](./.github/workflows). Both build workflows use
+[`build-image.sh`](./.github/scripts/build-image.sh). It smoke tests each image with `nginx -v` and `nginx -t`, pushes
+it with attestations, and moves tags only after confirming the pushed image is the one that was tested.
 
 - **`buildNext.yml`** - runs on every push to `develop`, on a weekly schedule, and on manual dispatch. Builds and
   pushes both `next` variants in parallel via a matrix, on the major.minor of the pinned nginx version.

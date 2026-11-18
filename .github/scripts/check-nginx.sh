@@ -4,11 +4,12 @@
 #
 #  1. A newer patch on the pinned major.minor line, published by *both* nginx and
 #     fholzer/nginx-brotli, opens a PR to develop that bumps NGINX_VERSION and adds a CHANGELOG
-#     line. Skipped if a branch for that version already exists.
+#     line. Skipped if a PR for that version already exists, whether open, closed or merged.
 #  2. A newer major.minor line published by both images opens an issue. Moving lines is a judgment
 #     call, so it is never automated.
 #  3. No commit on develop for INACTIVITY_WARN_DAYS opens an issue. GitHub disables scheduled
-#     workflows in public repos after 60 days without activity, including this one.
+#     workflows in public repos after 60 days without activity, including this one. The issue is
+#     closed again once develop is active, so the next idle spell alerts afresh.
 #
 # Env: GH_TOKEN (for gh - in CI, an XH Build Bot token so its PRs and issues show as that bot),
 # DRY_RUN=1 to print actions instead of taking them. For testing,
@@ -45,11 +46,15 @@ newest_common() {
 }
 
 # Security entries from nginx's CHANGES for versions newer than $1, up to and including $2.
+# Returns 1 if the page can't be fetched or has no entry for $2, so an outage or a format change is
+# never reported as "no security fixes".
 nginx_security_cves() {
-    curl -fsS --retry 3 https://nginx.org/en/CHANGES \
-        | awk -v to="$2" -v from="$1" '
+    local page
+    page=$(curl -fsS --retry 3 https://nginx.org/en/CHANGES) || return 1
+    grep -qF "Changes with nginx $2 " <<<"$page" || return 1
+    awk -v to="$2" -v from="$1" '
             /^Changes with nginx / { v = $4; on = (v == to) ? 1 : (v == from ? 0 : on) }
-            on' \
+            on' <<<"$page" \
         | tr '\n' ' ' | grep -oE 'CVE-[0-9]+-[0-9]+' | sort -u || true
 }
 
@@ -82,18 +87,27 @@ log "Newest $MINOR.x in both images: ${LATEST:-none}"
 if [ -n "$LATEST" ] && [ "$LATEST" != "$PINNED" ] \
     && [ "$(printf '%s\n%s\n' "$PINNED" "$LATEST" | sort -V | tail -1)" = "$LATEST" ]; then
     BRANCH="nginx-$LATEST"
-    if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
-        log "Branch $BRANCH already exists - PR already opened."
+    BRANCH_EXISTS=0
+    git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null && BRANCH_EXISTS=1
+    # Key off the PR, not the branch, so a run that pushed the branch but failed to open the PR is
+    # retried. Open: nothing to do. Closed or merged: someone decided, so don't reopen it daily.
+    PR_STATES=$(gh pr list --state all --head "$BRANCH" --json state --jq '.[].state' | sort -u | paste -sd, -)
+    if [ -n "$PR_STATES" ]; then
+        log "PR for $BRANCH already exists ($PR_STATES)."
     else
-        CVES=$(nginx_security_cves "$PINNED" "$LATEST")
-        CVE_COUNT=$(grep -c . <<<"$CVES" || true)
         # Short note for the CHANGELOG, full CVE list for the PR body.
-        if [ "$CVE_COUNT" -gt 0 ]; then
-            NOTE="with $CVE_COUNT nginx security fixes"
-            CVE_LIST="- ${CVES//$'\n'/$'\n'- }"
+        CVE_LIST=""
+        if CVES=$(nginx_security_cves "$PINNED" "$LATEST"); then
+            CVE_COUNT=$(grep -c . <<<"$CVES" || true)
+            if [ "$CVE_COUNT" -gt 0 ]; then
+                NOTE="with $CVE_COUNT nginx security fixes"
+                CVE_LIST="- ${CVES//$'\n'/$'\n'- }"
+            else
+                NOTE="with no security fixes listed in the nginx CHANGES"
+            fi
         else
-            NOTE="with no security fixes listed in the nginx CHANGES"
-            CVE_LIST=""
+            echo "::warning::Could not read security fixes for $LATEST from the nginx CHANGES"
+            NOTE="but the nginx CHANGES could not be read to list its security fixes"
         fi
         log "Bumping $PINNED -> $LATEST, $NOTE"
 
@@ -119,13 +133,20 @@ Opened by the Check nginx workflow."
         act git -c user.name="xh-build-bot[bot]" \
             -c user.email="324593885+xh-build-bot[bot]@users.noreply.github.com" \
             commit -am "Bump nginx to $LATEST"
-        act git push origin "$BRANCH"
+        if [ "$BRANCH_EXISTS" = "1" ]; then
+            # A past run pushed the branch but failed to open the PR. It's the bot's own branch,
+            # rebuilt from develop, so replace it.
+            log "Branch $BRANCH exists with no PR - replacing it."
+            act git push --force origin "$BRANCH"
+        else
+            act git push origin "$BRANCH"
+        fi
         act gh pr create --base develop --head "$BRANCH" --title "Bump nginx to $LATEST" --body "$BODY"
         if [ "$DRY_RUN" = "1" ]; then
             git --no-pager diff
             git checkout -- Dockerfile CHANGELOG.md
             # Confirm the token can push, without creating anything.
-            git push --dry-run origin "HEAD:refs/heads/$BRANCH"
+            git push --dry-run --force origin "HEAD:refs/heads/$BRANCH"
         fi
     fi
 fi
@@ -146,8 +167,15 @@ done
 LAST_COMMIT=$(git log -1 --format=%ct origin/develop 2>/dev/null || git log -1 --format=%ct)
 AGE_DAYS=$(( ($(date +%s) - LAST_COMMIT) / 86400 ))
 log "Last commit on develop: $AGE_DAYS days ago"
-if [ "$AGE_DAYS" -ge "$INACTIVITY_WARN_DAYS" ]; then
-    open_issue_once "Scheduled workflows go idle soon" \
+IDLE_TITLE="Scheduled workflows go idle soon"
+if [ "$AGE_DAYS" -lt "$INACTIVITY_WARN_DAYS" ]; then
+    # Close a past warning once develop is active again, so the next idle spell alerts afresh.
+    for n in $(gh issue list --state open --search "in:title \"$IDLE_TITLE\"" --json number,title \
+            --jq ".[] | select(.title == \"$IDLE_TITLE\") | .number"); do
+        act gh issue close "$n" --comment "\`develop\` has a commit from $AGE_DAYS days ago. Closing."
+    done
+else
+    open_issue_once "$IDLE_TITLE" \
         "There has been no commit on \`develop\` for $AGE_DAYS days. GitHub disables scheduled workflows in public repos after 60 days without activity. That would stop the weekly \`next\` rebuild and this check.
 
 To reset the clock, merge or push any commit to \`develop\`. If they were already disabled, re-enable them with \`gh workflow enable buildNext.yml\` and \`gh workflow enable checkNginx.yml\`.

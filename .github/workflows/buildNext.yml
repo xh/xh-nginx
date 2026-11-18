@@ -57,13 +57,6 @@ jobs:
             echo "::error::Could not read NGINX_VERSION from Dockerfile"
             exit 1
           fi
-          TAG="xhio/xh-nginx:next${TAG_SUFFIX}"
-          BUILD_ARGS=(--build-arg NGINX_VERSION="$NGINX_MINOR" --target "$TARGET" -t "$TAG")
-
-          # Build and load locally first, to check nginx runs and log its version before pushing.
-          docker buildx build --pull --load "${BUILD_ARGS[@]}" .
-          docker run --rm --entrypoint nginx "$TAG" -v
-
-          # Rebuild from cache and push with SBOM and provenance attestations attached. A plain
-          # `docker push` of the loaded image would drop them.
-          docker buildx build --push --sbom=true --provenance=mode=max "${BUILD_ARGS[@]}" .
+          # Build, smoke test, push with attestations, and tag only once the pushed image is
+          # confirmed to be the tested one. See the script for details.
+          NGINX_VERSION="$NGINX_MINOR" .github/scripts/build-image.sh "$TARGET" "xhio/xh-nginx:next${TAG_SUFFIX}"
