@@ -1,0 +1,58 @@
+name: Check nginx
+
+# Daily check for nginx updates to the version pinned in the Dockerfile. Opens a PR to develop for
+# a newer patch on the pinned line, an issue for a newer major.minor line, and an issue if develop
+# has been idle long enough that GitHub may disable scheduled workflows.
+# See .github/scripts/check-nginx.sh for details.
+#
+# Branches, PRs and issues all come from the org's XH Build Bot GitHub App. Its credentials are
+# the org-level XH_BUILD_BOT_CLIENT_ID variable and XH_BUILD_BOT_PRIVATE_KEY secret.
+
+on:
+  schedule:
+    # 13:17 UTC daily. Off the top of the hour, when GitHub notes scheduled runs can be delayed.
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run. Log what would happen, and check the bot can push, without changing anything.'
+        type: boolean
+        default: false
+      pinned-override:
+        description: 'Test only. Treat this nginx version as pinned (e.g. 1.31.6). Use with dry run.'
+        type: string
+        default: ''
+
+# The workflow's own token is unused. The bot token covers everything.
+permissions: {}
+
+concurrency:
+  group: checkNginx
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint XH Build Bot token
+        id: bot-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.XH_BUILD_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.XH_BUILD_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - uses: actions/checkout@v7
+        with:
+          ref: develop
+          # Push the bump branch as the bot.
+          token: ${{ steps.bot-token.outputs.token }}
+
+      - name: Check for nginx updates
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          DRY_RUN: ${{ inputs.dry-run && '1' || '0' }}
+          PINNED_OVERRIDE: ${{ inputs.pinned-override }}
+        run: .github/scripts/check-nginx.sh
