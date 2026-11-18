@@ -32,6 +32,14 @@ recorded in `CHANGELOG.md`), and a mutable `latest` (or `latest-brotli`) tag tha
 that variant. Docker Hub enforces the immutable tags: any tag matching `^[0-9]+\.[0-9]+\.[0-9]+(-brotli)?$` cannot be
 overwritten or deleted.
 
+Every published image carries an SBOM (the packages it contains) and build provenance (its exact base image and build
+inputs) as attestations. Docker Scout reads these, and anyone can view them:
+
+```sh
+docker buildx imagetools inspect xhio/xh-nginx:latest --format '{{json .SBOM}}'
+docker buildx imagetools inspect xhio/xh-nginx:latest --format '{{json .Provenance}}'
+```
+
 ## Support policy
 
 - Only the most recent release gets updates. Older release tags stay on Docker Hub but are not patched.

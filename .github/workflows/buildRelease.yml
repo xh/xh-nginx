@@ -79,21 +79,25 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # A buildx builder (docker-container driver) is required to attach attestations.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Build and push image
         env:
           TARGET: ${{ matrix.variant.target }}
           VERSION_TAG: xhio/xh-nginx:${{ inputs.version }}${{ matrix.variant.tag-suffix }}
           LATEST_TAG: xhio/xh-nginx:latest${{ matrix.variant.tag-suffix }}
         run: |
-          docker build \
-            --pull \
-            --target "$TARGET" \
-            -t "$VERSION_TAG" \
-            -t "$LATEST_TAG" \
-            .
+          BUILD_ARGS=(--target "$TARGET" -t "$VERSION_TAG" -t "$LATEST_TAG")
+
+          # Build and load locally first, to check nginx runs and log its version before pushing.
+          docker buildx build --pull --load "${BUILD_ARGS[@]}" .
           docker run --rm --entrypoint nginx "$VERSION_TAG" -v
-          docker push "$VERSION_TAG"
-          docker push "$LATEST_TAG"
+
+          # Rebuild from cache and push both tags with SBOM and provenance attestations attached.
+          # A plain `docker push` of the loaded image would drop them.
+          docker buildx build --push --sbom=true --provenance=mode=max "${BUILD_ARGS[@]}" .
 
   release:
     needs: build

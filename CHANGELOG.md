@@ -20,6 +20,8 @@ with a separate `1.x-brotli` version line — see entries below.
 * The brotli variant now installs the shared `xh.conf` with a small brotli-only `xh-brotli.conf`
   appended, replacing a full copy of `xh.conf` that had to be kept in sync by hand. The installed
   file is still `xh.conf`, and the effective nginx config is unchanged.
+* Published images now carry SBOM and build provenance attestations. Each tag on Docker Hub lists
+  an extra `unknown/unknown` entry, which holds the attestations. See the README to view them.
 
 ## 3.4.0 - 2026-11-18
 
