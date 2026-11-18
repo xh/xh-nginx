@@ -16,8 +16,8 @@ below.
 |----------------|--------------------------------|---------------------------------|
 | next           | `nginx:1.31`                   | `next`                          |
 | next-brotli    | `fholzer/nginx-brotli:v1.31`   | `next-brotli`                   |
-| release        | `nginx:1.31.3`                 | `latest`, `3.3.0`               |
-| release-brotli | `fholzer/nginx-brotli:v1.31.3` | `latest-brotli`, `3.3.0-brotli` |
+| release        | `nginx:1.31.9`                 | `latest`, `3.4.0`               |
+| release-brotli | `fholzer/nginx-brotli:v1.31.9` | `latest-brotli`, `3.4.0-brotli` |
 
 `next` / `next-brotli` tags are fully mutable. Every variant is rebuilt on every commit to `develop` and on a weekly schedule
 (Wednesday ~20:00 ET) so they pick up upstream patches to the floating major.minor base image tags. They are intended
@@ -26,6 +26,17 @@ for testing and snapshot-style deployments.
 `release` / `release-brotli` builds publish two tags per variant: an immutable tag (the xh-nginx semver release
 recorded in `CHANGELOG.md`), and a mutable `latest` (or `latest-brotli`) tag that floats to the most recent release of
 that variant.
+
+## Support policy
+
+- Only the most recent release gets updates. Older release tags stay on Docker Hub but are not patched.
+- We cut a new release promptly when nginx ships a security fix on the line we track, or when the upstream base
+  images fix critical or high CVEs. Each release records its nginx version in [`CHANGELOG.md`](./CHANGELOG.md).
+- For production, use `latest` / `latest-brotli`, or pin an exact release tag and move to each new release as it ships.
+  A pinned tag never changes, so it never picks up security fixes on its own.
+- `next` / `next-brotli` are for testing only.
+- Tags from before the 3.x line (`2.x`, `v`-prefixed, `brotli`, and `1.x-brotli`) are unsupported and will not be
+  updated.
 
 ## Branches and CI
 

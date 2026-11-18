@@ -15,6 +15,17 @@ with a separate `1.x-brotli` version line — see entries below.
 
 * nginx `1.31` tags (`next`, `next-brotli`)
 
+## 3.4.0 - 2026-11-18
+
+* nginx `1.31.9` tags (`3.4.0`, `latest`, `3.4.0-brotli`, `latest-brotli`).
+* No config changes. This release picks up 16 nginx security fixes from `1.31.6`, `1.31.7`, and
+  `1.31.9`, including use-after-free and buffer overflow fixes in HTTP/2, HTTP/3, and SSL request
+  body handling. See the [nginx CHANGES](https://nginx.org/en/CHANGES) for details.
+* Also picks up current Debian and Alpine package updates from the upstream base images, which
+  clear most fixable OS-level CVEs reported by Docker Scout against `3.3.0`.
+* Added a support policy to the README. Only the latest release gets updates, so apps pinned to an
+  older tag should move to each new release as it ships.
+
 ## 3.3.0 - 2026-08-27
 
 * nginx `1.31.3` tags (`3.3.0`, `latest`, `3.3.0-brotli`, `latest-brotli`).
