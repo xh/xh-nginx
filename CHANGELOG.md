@@ -14,14 +14,18 @@ with a separate `1.x-brotli` version line — see entries below.
 ## next - under development
 
 * nginx `1.31` tags (`next`, `next-brotli`)
-* Merged `Dockerfile-brotli` into `Dockerfile` as a second build target. The pinned nginx version
-  now lives in one place, the `NGINX_VERSION` default at the top of the `Dockerfile`. No change to
-  the published images. Local builds of the brotli variant now use `--target brotli`.
+
+## 3.5.0 - 2026-11-18
+
+* nginx `1.31.9` tags (`3.5.0`, `latest`, `3.5.0-brotli`, `latest-brotli`).
+* Published images now carry SBOM and build provenance attestations. Each tag on Docker Hub lists
+  an extra `unknown/unknown` entry, which holds the attestations. See the README to view them.
 * The brotli variant now installs the shared `xh.conf` with a small brotli-only `xh-brotli.conf`
   appended, replacing a full copy of `xh.conf` that had to be kept in sync by hand. The installed
   file is still `xh.conf`, and the effective nginx config is unchanged.
-* Published images now carry SBOM and build provenance attestations. Each tag on Docker Hub lists
-  an extra `unknown/unknown` entry, which holds the attestations. See the README to view them.
+* Merged `Dockerfile-brotli` into `Dockerfile` as a second build target. The pinned nginx version
+  now lives in one place, the `NGINX_VERSION` default at the top of the `Dockerfile`. No change to
+  the published images. Local builds of the brotli variant now use `--target brotli`.
 
 ## 3.4.0 - 2026-11-18
 
