@@ -14,6 +14,9 @@ with a separate `1.x-brotli` version line — see entries below.
 ## next - under development
 
 * nginx `1.31` tags (`next`, `next-brotli`)
+* Merged `Dockerfile-brotli` into `Dockerfile` as a second build target. The pinned nginx version
+  now lives in one place, the `NGINX_VERSION` default at the top of the `Dockerfile`. No change to
+  the published images. Local builds of the brotli variant now use `--target brotli`.
 
 ## 3.4.0 - 2026-11-18
 

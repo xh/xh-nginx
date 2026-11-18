@@ -12,12 +12,16 @@ enable Brotli compression alongside gzip.
 Images are published to Docker Hub as [`xhio/xh-nginx`](https://hub.docker.com/r/xhio/xh-nginx), producing the variants
 below.
 
-| Variant        | Base image                     | Docker tag(s)                   |
-|----------------|--------------------------------|---------------------------------|
-| next           | `nginx:1.31`                   | `next`                          |
-| next-brotli    | `fholzer/nginx-brotli:v1.31`   | `next-brotli`                   |
-| release        | `nginx:1.31.9`                 | `latest`, `3.4.0`               |
-| release-brotli | `fholzer/nginx-brotli:v1.31.9` | `latest-brotli`, `3.4.0-brotli` |
+| Variant        | Base image                            | Docker tag(s)                          |
+|----------------|---------------------------------------|----------------------------------------|
+| next           | `nginx:<major.minor>`                 | `next`                                 |
+| next-brotli    | `fholzer/nginx-brotli:v<major.minor>` | `next-brotli`                          |
+| release        | `nginx:<pinned>`                      | `latest`, `<xh-release>`               |
+| release-brotli | `fholzer/nginx-brotli:v<pinned>`      | `latest-brotli`, `<xh-release>-brotli` |
+
+The pinned nginx version is the `NGINX_VERSION` default at the top of the [`Dockerfile`](./Dockerfile). It is the
+only place to bump nginx. `next` builds use its major.minor. [`CHANGELOG.md`](./CHANGELOG.md) records the nginx version
+in each release.
 
 `next` / `next-brotli` tags are fully mutable. Every variant is rebuilt on every commit to `develop` and on a weekly schedule
 (Wednesday ~20:00 ET) so they pick up upstream patches to the floating major.minor base image tags. They are intended
@@ -25,7 +29,8 @@ for testing and snapshot-style deployments.
 
 `release` / `release-brotli` builds publish two tags per variant: an immutable tag (the xh-nginx semver release
 recorded in `CHANGELOG.md`), and a mutable `latest` (or `latest-brotli`) tag that floats to the most recent release of
-that variant.
+that variant. Docker Hub enforces the immutable tags: any tag matching `^[0-9]+\.[0-9]+\.[0-9]+(-brotli)?$` cannot be
+overwritten or deleted.
 
 ## Support policy
 
@@ -41,19 +46,23 @@ that variant.
 ## Branches and CI
 
 This repo uses a single `develop` branch (and a `master` branch tracking the most recent release). Both variants build
-from `develop` via dedicated Dockerfiles ([`Dockerfile`](./Dockerfile) and [`Dockerfile-brotli`](./Dockerfile-brotli))
-and share the unified xh-nginx version and docker tag version.
+from `develop` via a single [`Dockerfile`](./Dockerfile) with one build target per variant, and share the unified
+xh-nginx version and docker tag version. To build locally:
+
+```sh
+docker build -t xh-nginx-local .                                  # standard (default target)
+docker build --target brotli -t xh-nginx-local:brotli .           # brotli
+docker build --build-arg NGINX_VERSION=1.31 -t xh-nginx-local .   # float on a major.minor, as `next` does
+```
 
 GitHub Actions workflows live in [`.github/workflows/`](./.github/workflows):
 
-- **`buildNext.yml`** — runs on every push to `develop`, on a weekly schedule, and on manual dispatch. Builds and
-  pushes both `next` variants in parallel via a matrix.
-- **`buildRelease.yml`** — manual dispatch from `master` only. Takes a semver release version as input. The locked
-  nginx patch version is pinned in the workflow's build matrix (with the [`Dockerfile`](./Dockerfile) and
-  [`Dockerfile-brotli`](./Dockerfile-brotli) `NGINX_VERSION` ARG defaults kept in sync for local builds). Builds and
-  pushes the `release` variants, then creates the corresponding git tag and GitHub release. To release with a newer 
-  nginx patch, bump the matrix entries (and the Dockerfile defaults) and update `CHANGELOG.md` in a normal PR before 
-  dispatching the workflow.
+- **`buildNext.yml`** - runs on every push to `develop`, on a weekly schedule, and on manual dispatch. Builds and
+  pushes both `next` variants in parallel via a matrix, on the major.minor of the pinned nginx version.
+- **`buildRelease.yml`** - manual dispatch from `master` only. Takes a semver release version as input. Builds and
+  pushes the `release` variants on the pinned nginx version, then creates the corresponding git tag and GitHub release.
+  To release with a newer nginx patch, bump `NGINX_VERSION` in the `Dockerfile` and update `CHANGELOG.md` in a normal
+  PR before dispatching the workflow.
 
 ----
 

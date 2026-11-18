@@ -2,16 +2,15 @@ name: Build Release
 
 # Publishes a numbered xhio/xh-nginx release. Manually triggered from master
 # (or a hotfix branch). Validates the release version, builds the release
-# variants in parallel against the pinned nginx patch version in the matrix
-# below, pushes to Docker Hub with both the immutable `<xh-release><suffix>`
-# tag and the floating `latest<suffix>` tag, then tags the commit and creates
-# a GitHub release.
+# variants in parallel against the pinned nginx patch version (the
+# NGINX_VERSION default in the Dockerfile), pushes to Docker Hub with both the
+# immutable `<xh-release><suffix>` tag and the floating `latest<suffix>` tag,
+# then tags the commit and creates a GitHub release.
 # See README / CHANGELOG for the currently supported variants.
 #
-# To release with a newer nginx patch: bump the `nginx-version` entries in
-# the matrix below (and keep the Dockerfile / Dockerfile-brotli NGINX_VERSION
-# ARG defaults in sync for local builds), update CHANGELOG.md in a normal PR,
-# merge to master, then dispatch this workflow.
+# To release with a newer nginx patch: bump NGINX_VERSION in the Dockerfile,
+# update CHANGELOG.md in a normal PR, merge to master, then dispatch this
+# workflow.
 
 on:
   workflow_dispatch:
@@ -63,14 +62,13 @@ jobs:
     strategy:
       fail-fast: false
       # Supported release variants: the default nginx image and the
-      # fholzer/nginx-brotli image. Each entry pins an exact patch via
-      # `nginx-version` and publishes `<version><suffix>` + `latest<suffix>`.
-      # Keep the Dockerfile / Dockerfile-brotli NGINX_VERSION ARG defaults
-      # in sync for local builds.
+      # fholzer/nginx-brotli image, each a build target in the Dockerfile.
+      # Both build the Dockerfile's pinned NGINX_VERSION and publish
+      # `<version><suffix>` + `latest<suffix>`.
       matrix:
         variant:
-          - { nginx-version: "1.31.9", dockerfile: Dockerfile, tag-suffix: "" }
-          - { nginx-version: "1.31.9", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
+          - { target: standard, tag-suffix: "" }
+          - { target: brotli, tag-suffix: "-brotli" }
 
     steps:
       - uses: actions/checkout@v7
@@ -83,18 +81,17 @@ jobs:
 
       - name: Build and push image
         env:
-          DOCKERFILE: ${{ matrix.variant.dockerfile }}
-          NGINX_VERSION: ${{ matrix.variant.nginx-version }}
+          TARGET: ${{ matrix.variant.target }}
           VERSION_TAG: xhio/xh-nginx:${{ inputs.version }}${{ matrix.variant.tag-suffix }}
           LATEST_TAG: xhio/xh-nginx:latest${{ matrix.variant.tag-suffix }}
         run: |
           docker build \
             --pull \
-            --build-arg NGINX_VERSION="$NGINX_VERSION" \
-            -f "$DOCKERFILE" \
+            --target "$TARGET" \
             -t "$VERSION_TAG" \
             -t "$LATEST_TAG" \
             .
+          docker run --rm --entrypoint nginx "$VERSION_TAG" -v
           docker push "$VERSION_TAG"
           docker push "$LATEST_TAG"
 

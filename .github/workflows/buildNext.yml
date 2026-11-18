@@ -26,12 +26,13 @@ jobs:
     strategy:
       fail-fast: false
       # Supported variants: the default nginx image and the fholzer/nginx-brotli
-      # variant. Both use the floating major.minor tag so they pick up upstream
-      # patches automatically.
+      # variant, each a build target in the Dockerfile. Both use the floating
+      # major.minor of the Dockerfile's pinned NGINX_VERSION, so they pick up
+      # upstream patches automatically.
       matrix:
         variant:
-          - { nginx-version: "1.31", dockerfile: Dockerfile, tag-suffix: "" }
-          - { nginx-version: "1.31", dockerfile: Dockerfile-brotli, tag-suffix: "-brotli" }
+          - { target: standard, tag-suffix: "" }
+          - { target: brotli, tag-suffix: "-brotli" }
     steps:
       - uses: actions/checkout@v7
 
@@ -43,13 +44,19 @@ jobs:
 
       - name: Build and push image
         env:
-          DOCKERFILE: ${{ matrix.variant.dockerfile }}
-          NGINX_VERSION: ${{ matrix.variant.nginx-version }}
+          TARGET: ${{ matrix.variant.target }}
           TAG_SUFFIX: ${{ matrix.variant.tag-suffix }}
         run: |
+          # Float on the major.minor of the pinned version, e.g. 1.31.9 -> 1.31.
+          NGINX_MINOR=$(sed -nE 's/^ARG NGINX_VERSION=([0-9]+\.[0-9]+)\..*/\1/p' Dockerfile)
+          if [ -z "$NGINX_MINOR" ]; then
+            echo "::error::Could not read NGINX_VERSION from Dockerfile"
+            exit 1
+          fi
           TAG="xhio/xh-nginx:next${TAG_SUFFIX}"
           docker build --pull \
-            --build-arg NGINX_VERSION="$NGINX_VERSION" \
-            -f "$DOCKERFILE" \
+            --build-arg NGINX_VERSION="$NGINX_MINOR" \
+            --target "$TARGET" \
             -t "$TAG" .
+          docker run --rm --entrypoint nginx "$TAG" -v
           docker push "$TAG"
