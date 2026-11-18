@@ -25,12 +25,14 @@ ENV XH_NGINX_CONTENT_PATH=/usr/share/nginx/html
 # Clear out default nginx config and welcome page
 RUN rm $XH_NGINX_CONFIG_PATH/default.conf && rm $XH_NGINX_CONTENT_PATH/*
 
-# Copy in overridden nginx-brotli.conf (brotli-flavored, enabling gzip + brotli at the http level),
-# xh-brotli.conf (brotli-flavored, adding brotli_types alongside the gzip tuning/types), and shared
-# includes.
+# Copy in overridden nginx-brotli.conf (enabling brotli at the http level) and shared includes.
 COPY nginx-brotli.conf /etc/nginx/nginx.conf
-COPY xh-brotli.conf $XH_NGINX_CONFIG_PATH/xh.conf
 COPY includes $XH_NGINX_CONFIG_INCL_PATH/
+
+# Install the shared xh.conf with the brotli additions from xh-brotli.conf appended. Producing one
+# installed xh.conf means apps that include only that file still get both compressors.
+COPY xh.conf xh-brotli.conf /tmp/xh/
+RUN cat /tmp/xh/xh.conf /tmp/xh/xh-brotli.conf > $XH_NGINX_CONFIG_PATH/xh.conf && rm -r /tmp/xh
 
 
 #-----------------------------------------------------------------------------------------------

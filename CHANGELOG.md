@@ -17,6 +17,9 @@ with a separate `1.x-brotli` version line — see entries below.
 * Merged `Dockerfile-brotli` into `Dockerfile` as a second build target. The pinned nginx version
   now lives in one place, the `NGINX_VERSION` default at the top of the `Dockerfile`. No change to
   the published images. Local builds of the brotli variant now use `--target brotli`.
+* The brotli variant now installs the shared `xh.conf` with a small brotli-only `xh-brotli.conf`
+  appended, replacing a full copy of `xh.conf` that had to be kept in sync by hand. The installed
+  file is still `xh.conf`, and the effective nginx config is unchanged.
 
 ## 3.4.0 - 2026-11-18
 
