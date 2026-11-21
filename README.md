@@ -75,10 +75,13 @@ it with attestations, and moves tags only after confirming the pushed image is t
   PR before dispatching the workflow.
 - **`checkNginx.yml`** - runs daily and on manual dispatch, via [`check-nginx.sh`](./.github/scripts/check-nginx.sh).
   When both base images publish a newer nginx patch on the pinned line, it opens a PR to `develop` that bumps
-  `NGINX_VERSION` and adds a `CHANGELOG.md` line. PRs come from the org's XH Build Bot GitHub App. A manual run with
-  "dry run" checked logs what would happen and confirms the bot can push, without changing anything. It opens an issue when a newer nginx major.minor line is available,
-  and another when `develop` has gone 45 days without a commit. GitHub disables scheduled workflows in public repos
-  after 60 days without activity, so that issue is the cue to merge something before `next` stops rebuilding.
+  `NGINX_VERSION` and adds a `CHANGELOG.md` line. When upstream rebuilds either base image for OS and package updates
+  after our latest release, it opens a PR that adds a `CHANGELOG.md` note. That PR is the cue to cut a patch release.
+  PRs come from the org's XH Build Bot GitHub App. A manual run with "dry run" checked logs what would happen and
+  confirms the bot can push, without changing anything. It opens an issue when a newer nginx major.minor line is
+  available, and another when `develop` has gone 45 days without a commit. GitHub disables scheduled workflows in
+  public repos after 60 days without activity, so that issue is the cue to merge something before `next` stops
+  rebuilding.
 
 ----
 

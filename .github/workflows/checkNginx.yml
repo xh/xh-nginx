@@ -1,8 +1,9 @@
 name: Check nginx
 
 # Daily check for nginx updates to the version pinned in the Dockerfile. Opens a PR to develop for
-# a newer patch on the pinned line, an issue for a newer major.minor line, and an issue if develop
-# has been idle long enough that GitHub may disable scheduled workflows.
+# a newer patch on the pinned line, or for upstream base image rebuilds with OS and package
+# updates that our latest release doesn't have yet. Opens an issue for a newer major.minor line.
+# Also opens one if develop has been idle long enough that GitHub may disable scheduled workflows.
 # See .github/scripts/check-nginx.sh for details.
 #
 # Branches, PRs and issues all come from the org's XH Build Bot GitHub App. Its credentials are
@@ -20,6 +21,10 @@ on:
         default: false
       pinned-override:
         description: 'Test only. Treat this nginx version as pinned (e.g. 1.31.6). Use with dry run.'
+        type: string
+        default: ''
+      compare-release:
+        description: 'Test only. Compare upstream base images against this release (e.g. "3.4.0") instead of latest. Use with dry run.'
         type: string
         default: ''
 
@@ -47,12 +52,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: develop
-          # Push the bump branch as the bot.
+          # Push PR branches as the bot.
           token: ${{ steps.bot-token.outputs.token }}
+
+      # Log in so image inspection avoids the anonymous pull rate limit. The token is only used to
+      # read. Hub API calls stay anonymous, and fail the run if limited.
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Check for nginx updates
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           DRY_RUN: ${{ inputs.dry-run && '1' || '0' }}
           PINNED_OVERRIDE: ${{ inputs.pinned-override }}
+          COMPARE_RELEASE: ${{ inputs.compare-release || 'latest' }}
         run: .github/scripts/check-nginx.sh
