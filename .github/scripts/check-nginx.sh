@@ -5,13 +5,14 @@
 #  1. A newer patch on the pinned major.minor line, published by *both* nginx and
 #     fholzer/nginx-brotli, opens a PR to develop that bumps NGINX_VERSION and adds a CHANGELOG
 #     line. Skipped if a PR for that version already exists, whether open, closed or merged. A new
-#     bump PR closes older open bump and refresh PRs, which it supersedes.
-#  2. Upstream rebuilds its base images for OS and package updates without an nginx version change.
-#     If either upstream image is no longer the base of our latest release, a PR to develop adds a
-#     CHANGELOG note, to prompt a patch release. The branch is keyed on our released images and
-#     the note, so there is at most one open refresh PR, and a PR a person closes stays closed.
-#     Skipped while a bump PR is open or a release is already due, as that release builds on the
-#     newest base images anyway. Open refresh PRs close once our images are current again.
+#     bump PR closes older open bump PRs, which it supersedes.
+#  2. An issue says when a release is due: our latest images lack updates that a release would
+#     ship today. That is a newer pinned nginx (e.g. a merged bump PR), or newer OS packages in the
+#     upstream images. It lists each change, and how to release. While it is open, it is kept up to
+#     date. It closes itself once our images are current. A person can close it to skip those
+#     updates. It then stays closed until upstream ships more. No new issue opens while a bump PR
+#     is open, as that PR is the cue to act. Packages are compared, not image layers, because
+#     upstream rebuilds often change layers with no package change.
 #  3. A newer major.minor line published by both images opens an issue. Moving lines is a judgment
 #     call, so it is never automated.
 #  4. No commit on develop for INACTIVITY_WARN_DAYS opens an issue. GitHub disables scheduled
@@ -25,18 +26,22 @@
 # DRY_RUN=1 to print actions instead of taking them. For testing, with DRY_RUN=1:
 # PINNED_OVERRIDE (e.g. 1.31.6) overrides the pinned version, COMPARE_RELEASE (e.g. 3.4.0)
 # compares upstream against that release's tags instead of latest, and INACTIVITY_WARN_DAYS sets
-# the idle threshold. Needs docker with buildx.
+# the idle threshold. Needs docker with buildx, and pulls four images.
 set -euo pipefail
+# Byte order for sort and comm, the same on every platform.
+export LC_ALL=C
 
 INACTIVITY_WARN_DAYS=${INACTIVITY_WARN_DAYS:-45}
 DRY_RUN=${DRY_RUN:-0}
 COMPARE_RELEASE=${COMPARE_RELEASE:-latest}
 REPO=xhio/xh-nginx
-# Branches this script opens PRs from. It only ever closes PRs from these, opened by the bot.
+# Branches this script opens bump PRs from. It only ever closes PRs from these, opened by the bot.
 BUMP_RE='^nginx-[0-9]+\.[0-9]+\.[0-9]+$'
-REFRESH_PREFIX=base-refresh-
-REFRESH_RE="^${REFRESH_PREFIX}[0-9a-f]+$"
-REFRESH_NOTE="* Rebuilt on the latest upstream base images, with their OS and package updates."
+RELEASE_TITLE="Release due: upstream updates are not in latest"
+# GitHub logins of the XH Build Bot app. The script only edits or closes issues and PRs it opened.
+BOT_RE='^(app/)?xh-build-bot(\[bot\])?$'
+# Marks the machine-readable list of updates at the end of that issue's body.
+LIST_START="<!-- check-nginx:updates"
 FOOTER="Opened by the Check nginx workflow."
 
 log() { echo "$*" >&2; }
@@ -97,11 +102,15 @@ image_info() {
         || { err "Unexpected image config for $1"; return 1; }
 }
 
-# Numbers of open issues with this exact title. Call it as `x=$(open_issues t) || exit 1`.
+# Numbers of the bot's open issues with this exact title, lowest first. Lists issues without
+# search, as search results can lag. Call it as `x=$(open_issues t) || exit 1`.
 open_issues() {
-    gh issue list --state open --search "in:title \"$1\"" --json number,title \
-        --jq ".[] | select(.title == \"$1\") | .number" \
-        || { err "Could not list issues titled $1"; return 1; }
+    local out
+    out=$(gh issue list --state open --limit 500 --json number,title,author) \
+        || { err "Could not list open issues"; return 1; }
+    jq -r --arg t "$1" --arg bot "$BOT_RE" \
+        '[.[] | select(.title == $t and (.author.login // "" | test($bot)))] | sort_by(.number) | .[].number' <<<"$out" \
+        || { err "Unexpected issue list"; return 1; }
 }
 
 open_issue_once() { # Args: title, body. Skips if an open issue already has this title.
@@ -129,8 +138,9 @@ open_bot_prs() {
     local out
     out=$(gh pr list --state open --base develop --limit 200 --json headRefName,author) \
         || { err "Could not list open PRs"; return 1; }
-    jq -r --arg re "$1" '.[] | select((.headRefName | test($re))
-        and (.author.login | test("^(app/)?xh-build-bot(\\[bot\\])?$"))) | .headRefName' <<<"$out"
+    jq -r --arg re "$1" --arg bot "$BOT_RE" \
+        '.[] | select((.headRefName | test($re)) and (.author.login // "" | test($bot))) | .headRefName' <<<"$out" \
+        || { err "Unexpected PR list"; return 1; }
 }
 
 # Close the bot's open PRs from other branches matching any of the given regexes. The PR from this
@@ -145,16 +155,6 @@ close_superseded() {
             act gh pr close "$old" --delete-branch --comment "Superseded by the PR from \`$branch\`."
         done
     done
-}
-
-# True if every closed PR from this branch was closed by this script as superseded, not by a person.
-only_superseded() {
-    local out
-    out=$(gh pr list --state closed --head "$1" --json comments \
-        --jq 'all(.[]; any(.comments[]; (.body | startswith("Superseded by"))
-            and (.author.login | test("^(app/)?xh-build-bot(\\[bot\\])?$"))))') \
-        || { err "Could not read PR comments for $1"; exit 1; }
-    [ "$out" = true ]
 }
 
 # True if the CHANGELOG's `## next` section has this exact line.
@@ -211,6 +211,93 @@ open_pr() {
     fi
 }
 
+# Installed packages in an image's linux/amd64 variant, as sorted "name version" lines. Works on
+# Debian (dpkg) and Alpine (apk). Skips apk virtual packages (e.g. `.nginx-rundeps-<timestamp>`),
+# whose names change on every rebuild. Pulls the image. Returns 1 on any error.
+pkg_list() {
+    local out
+    out=$(docker run --rm -q --pull always --platform linux/amd64 --entrypoint sh "$1" -c '
+            if command -v dpkg-query >/dev/null; then
+                dpkg-query -W -f "\${db:Status-Status} \${Package} \${Version}\n"
+            elif command -v apk >/dev/null; then
+                apk info -v | sed "s/^/installed /"
+            else
+                exit 3
+            fi') \
+        || { err "Could not list packages in $1"; return 1; }
+    # Fail on a line that doesn't parse, so a format change never hides packages.
+    out=$(sed -E 's/^installed ([^ ]+)-([^- ]+-r[0-9]+)$/installed \1 \2/' <<<"$out" \
+        | awk '$1 == "installed" && $2 !~ /^\./ { if (NF != 3) { bad = 1; exit } print $2, $3 }
+               END { if (bad) exit 1 }' | sort) \
+        || { err "Could not parse the package list of $1"; return 1; }
+    [ -n "$out" ] || { err "No packages found in $1"; return 1; }
+    echo "$out"
+}
+
+# Package changes between two package lists, as "variant package ours upstream" lines. "-" stands
+# for a package that is missing on one side. Args: variant name, our list, upstream list.
+pkg_diff() {
+    awk -v v="$1" '
+        NR == FNR { ours[$1] = $2; next }
+        { up[$1] = $2 }
+        END {
+            for (p in up) if (!(p in ours)) print v, p, "-", up[p]; else if (ours[p] != up[p]) print v, p, ours[p], up[p]
+            for (p in ours) if (!(p in up)) print v, p, ours[p], "-"
+        }' <(echo "$2") <(echo "$3") | sort
+}
+
+# The update list stored in an issue body.
+issue_list() {
+    tr -d '\r' <<<"$1" | awk -v s="$LIST_START" '$0 == s { on = 1; next } $0 == "-->" { on = 0 } on'
+}
+
+# Body of the release due issue. Arg: update list.
+release_body() {
+    local nginx rows count
+    nginx=$(awk -v r="$COMPARE_RELEASE" '$1 == "all" && $2 == "nginx" { printf "`develop` pins nginx `%s`. `%s` has `%s`", $4, r, $3 }' <<<"$1")
+    # Standard image first. With an nginx version change, skip the nginx package rows it implies.
+    rows=$(awk -v r="$COMPARE_RELEASE" -v skip_nginx="$([ -n "$nginx" ] && echo 1)" '
+        $1 == "all" || (skip_nginx && $2 ~ /^nginx(-module-.*)?$/) { next }
+        {
+            img = ($1 == "brotli") ? r "-brotli" : r
+            row = sprintf("| `%s` | `%s` | %s | %s |", img, $2, ($3 == "-" ? "not installed" : "`" $3 "`"), ($4 == "-" ? "removed" : "`" $4 "`"))
+            if ($1 == "brotli") brotli = brotli row "\n"; else print row
+        }
+        END { printf "%s", brotli }' <<<"$1")
+    count=$(grep -c . <<<"$rows" || true)
+    echo "Our \`$COMPARE_RELEASE\` images are missing updates that a new release would ship today."
+    echo
+    if [ -n "$nginx" ]; then
+        echo "- **nginx:** $nginx."
+    fi
+    if [ "$count" -gt 0 ]; then
+        echo "- **OS packages:** upstream \`nginx:$PINNED\` and \`fholzer/nginx-brotli:v$PINNED\` have $count package update$([ "$count" = 1 ] || echo s)$([ -n "$nginx" ] && echo ", besides nginx itself"):"
+        echo
+        echo "| Image | Package | In \`$COMPARE_RELEASE\` | Upstream now |"
+        echo "|-------|---------|------|--------------|"
+        echo "$rows"
+    fi
+    cat <<EOF
+
+### To release
+If a "Bump nginx" PR is open, merge it first, so the release includes it.
+
+1. On \`develop\`, add a new version section to \`CHANGELOG.md\` that lists these updates.
+2. Merge \`develop\` to \`master\` and push.
+3. Run the **Build Release** workflow from \`master\` with the new version, e.g. the next patch.
+
+The release builds on the newest upstream images, so it also picks up any later updates.
+
+This issue updates itself while it is open, and closes itself once \`$COMPARE_RELEASE\` has these updates. To skip them, close it. It then stays closed until upstream ships more updates.
+
+$FOOTER
+
+$LIST_START
+$1
+-->
+EOF
+}
+
 #-----------------------------------------------------------------------------------------------
 if { [ -n "${PINNED_OVERRIDE:-}" ] || [ "$COMPARE_RELEASE" != "latest" ]; } && [ "$DRY_RUN" != "1" ]; then
     err "PINNED_OVERRIDE and COMPARE_RELEASE are for testing and require a dry run"
@@ -253,7 +340,7 @@ if [ "$LATEST" != "$PINNED" ] \
         case $STATES in *OPEN*)
             BUMP_PENDING=1
             # In case a past run opened it but failed to close the PRs it supersedes.
-            close_superseded "$BRANCH" "$BUMP_RE" "$REFRESH_RE" ;;
+            close_superseded "$BRANCH" "$BUMP_RE" ;;
         esac
     else
         BUMP_PENDING=1
@@ -283,87 +370,85 @@ $CVE_LIST
 }
 Both \`nginx:$LATEST\` and \`fholzer/nginx-brotli:v$LATEST\` are published. See the [nginx CHANGES](https://nginx.org/en/CHANGES) for details.
 
-Merging rebuilds the \`next\` tags. To publish it, release from \`master\` as usual. The release also picks up any upstream OS and package updates.
+Merging rebuilds the \`next\` tags. It does not publish a release. After merge, the next daily run opens or updates a \"Release due\" issue with the release steps. The release also picks up any upstream OS and package updates.
 
 $FOOTER"
-        # A bump release also builds on the newest base images, so it supersedes refresh PRs too.
-        open_pr "$BRANCH" "Bump nginx to $LATEST" "$BODY" "$BUMP_RE" "$REFRESH_RE"
+        open_pr "$BRANCH" "Bump nginx to $LATEST" "$BODY" "$BUMP_RE"
     fi
 fi
 
-# Any open bot bump PR holds back refresh PRs, even one for a version Docker Hub no longer lists.
+# An open bot bump PR to a version newer than the pin holds back a new release due issue, even one
+# for a version Docker Hub no longer lists. One that develop already pins, e.g. bumped by hand,
+# does not.
 if [ $BUMP_PENDING = 0 ]; then
     OPEN_BUMPS=$(open_bot_prs "$BUMP_RE") || exit 1
-    if [ -n "$OPEN_BUMPS" ]; then BUMP_PENDING=1; fi
-fi
-
-# 2. Base images. Our images are built FROM upstream, so while upstream is unchanged our layers
-# start with its layers. Both variants are released together on the same nginx version, so the
-# standard image's NGINX_VERSION stands for both.
-OURS=$(image_info "$REPO:$COMPARE_RELEASE") || exit 1
-OUR_NGINX=$(jq -r .nginx <<<"$OURS")
-[ -n "$OUR_NGINX" ] || { err "No NGINX_VERSION in $REPO:$COMPARE_RELEASE"; exit 1; }
-STALE_ROWS=""  # One PR body table row per variant whose upstream was rebuilt.
-OUR_LAYERS=""  # Layers of each of our images, to key the refresh branch.
-if [ "$OUR_NGINX" != "$PINNED" ]; then
-    # E.g. a merged bump PR. The next release builds on the newest base images anyway.
-    log "$REPO:$COMPARE_RELEASE has nginx $OUR_NGINX, develop pins $PINNED. A release is due."
-    RELEASE_DUE=1
-else
-    RELEASE_DUE=0
-    for variant in "|nginx:$PINNED" "-brotli|fholzer/nginx-brotli:v$PINNED"; do
-        ours="$COMPARE_RELEASE${variant%%|*}"
-        upstream=${variant#*|}
-        if [ "$ours" != "$COMPARE_RELEASE" ]; then OURS=$(image_info "$REPO:$ours") || exit 1; fi
-        OUR_LAYERS+="$(jq -c .layers <<<"$OURS")"$'\n'
-        UP=$(image_info "$upstream") || exit 1
-        if jq -en --argjson u "$UP" --argjson o "$OURS" '$o.layers[0:($u.layers | length)] == $u.layers' >/dev/null; then
-            log "$ours is built on the current $upstream"
-        else
-            created=$(jq -r '.created[0:10]' <<<"$UP")
-            log "$upstream has been rebuilt since $ours (upstream built ${created:-unknown})"
-            STALE_ROWS+="| \`$ours\` | \`$upstream\` | ${created:-unknown} |"$'\n'
+    for b in $OPEN_BUMPS; do
+        v=${b#nginx-}
+        if [ "$v" != "$PINNED" ] && [ "$(printf '%s\n%s\n' "$PINNED" "$v" | sort -V | tail -1)" = "$v" ]; then
+            BUMP_PENDING=1
         fi
     done
 fi
 
-if [ $RELEASE_DUE = 1 ]; then
-    : # Logged above.
-elif [ -z "$STALE_ROWS" ]; then
-    # Our images are current, e.g. after a release, so an open refresh PR's note is now wrong.
-    OLDS=$(open_bot_prs "$REFRESH_RE") || exit 1
-    for old in $OLDS; do
-        act gh pr close "$old" --delete-branch --comment "Our \`$COMPARE_RELEASE\` images are built on the current upstream images. Closing."
-    done
-elif [ $BUMP_PENDING = 1 ]; then
-    log "Upstream base images were rebuilt, but a bump PR is open. Its release will pick them up."
-else
-    # Keyed on our images and the note. A new release gets a new PR, while more upstream rebuilds
-    # before a release, on either variant, don't churn the open one.
-    BRANCH=$REFRESH_PREFIX$(printf '%s\n%s\n' "$OUR_LAYERS" "$REFRESH_NOTE" | git hash-object --stdin | cut -c1-10)
-    STATES=$(pr_states "$BRANCH") || exit 1
-    if [ "$STATES" = CLOSED ] && only_superseded "$BRANCH"; then
-        # Closed by a bump PR that was then closed without merging. Nobody declined this refresh.
-        log "PR for $BRANCH was superseded by a PR that is now closed. Opening it again."
-        STATES=""
+# 2. Release due. Compare our released images with what a release would build today: the pinned
+# nginx, and the packages in the upstream images. Our Dockerfile installs no packages, so our
+# images have exactly their base image's packages. Both variants are released together on the same
+# nginx version, so the standard image's NGINX_VERSION stands for both. While a bump PR is open,
+# an open issue is still kept current, but no new one opens. The bump PR is the cue to act.
+OURS=$(image_info "$REPO:$COMPARE_RELEASE") || exit 1
+OUR_NGINX=$(jq -r .nginx <<<"$OURS")
+[ -n "$OUR_NGINX" ] || { err "No NGINX_VERSION in $REPO:$COMPARE_RELEASE"; exit 1; }
+UPDATES=""
+if [ "$OUR_NGINX" != "$PINNED" ]; then
+    log "$COMPARE_RELEASE has nginx $OUR_NGINX, develop pins $PINNED."
+    UPDATES="all nginx $OUR_NGINX $PINNED"$'\n'
+fi
+for variant in "standard||nginx:$PINNED" "brotli|-brotli|fholzer/nginx-brotli:v$PINNED"; do
+    IFS='|' read -r name suffix upstream <<<"$variant"
+    OUR_PKGS=$(pkg_list "$REPO:$COMPARE_RELEASE$suffix") || exit 1
+    UP_PKGS=$(pkg_list "$upstream") || exit 1
+    DIFF=$(pkg_diff "$name" "$OUR_PKGS" "$UP_PKGS")
+    log "$COMPARE_RELEASE$suffix vs $upstream: $(grep -c . <<<"$DIFF" || true) package updates"
+    if [ -n "$DIFF" ]; then UPDATES+="$DIFF"$'\n'; fi
+done
+UPDATES=$({ grep . <<<"$UPDATES" || true; } | sort)
+
+OPEN=$(open_issues "$RELEASE_TITLE") || exit 1
+KEEP=""
+for n in $OPEN; do
+    if [ -z "$KEEP" ]; then KEEP=$n; continue; fi
+    # Should not happen, but keep just the oldest one.
+    act gh issue close "$n" --comment "Duplicate of #$KEEP."
+done
+if [ -z "$UPDATES" ]; then
+    if [ -n "$KEEP" ]; then
+        act gh issue close "$KEEP" --comment "\`$COMPARE_RELEASE\` now has these updates. Closing."
     fi
-    if [ -n "$STATES" ]; then
-        log "PR for $BRANCH already exists ($STATES)."
-        case $STATES in *OPEN*) close_superseded "$BRANCH" "$REFRESH_RE" ;; esac
-    elif next_has_line "$REFRESH_NOTE"; then
-        # E.g. a merged refresh PR is waiting for a release, which will build on the newest images.
-        log "The CHANGELOG already has the refresh note. A release is due."
+elif [ -n "$KEEP" ]; then
+    HAVE=$(gh issue view "$KEEP" --json body --jq .body) || { err "Could not read issue #$KEEP"; exit 1; }
+    if [ "$(issue_list "$HAVE")" = "$UPDATES" ]; then
+        log "Issue #$KEEP already lists these updates."
     else
-        changelog_add "$REFRESH_NOTE"
-        BODY="Upstream has rebuilt the base images of our \`$COMPARE_RELEASE\` release, for OS and package updates. Our next release builds on the new ones:
-
-| Our image | Upstream base | Upstream built |
-|-----------|---------------|----------------|
-$STALE_ROWS
-Merging adds a CHANGELOG note. To ship the update, merge \`develop\` to \`master\` and release a new patch version as usual. A release rebuilds both variants on the newest upstream images.
-
-$FOOTER"
-        open_pr "$BRANCH" "Refresh base images: upstream OS and package updates" "$BODY" "$REFRESH_RE"
+        log "Updating issue #$KEEP with the current updates."
+        act gh issue edit "$KEEP" --body "$(release_body "$UPDATES")"
+    fi
+elif [ $BUMP_PENDING = 1 ]; then
+    log "Updates are waiting, but a bump PR is open. Not opening a release due issue until it is merged or closed."
+else
+    # The bot's most recently closed issue. If it listed all of these updates, a person closed it
+    # to skip them, as a release closes it only once there are none. Lists the newest closed
+    # issues without search, as search results can lag.
+    CLOSED=$(gh issue list --state closed --limit 200 --json title,body,closedAt,author) \
+        || { err "Could not list closed issues"; exit 1; }
+    LAST=$(jq -r --arg t "$RELEASE_TITLE" --arg bot "$BOT_RE" \
+            '[.[] | select(.title == $t and (.author.login // "" | test($bot)))] | sort_by(.closedAt) | last | .body // ""' \
+            <<<"$CLOSED") \
+        || { err "Unexpected issue list"; exit 1; }
+    SKIPPED=$(issue_list "$LAST" | sort)
+    if [ -n "$SKIPPED" ] && [ -z "$(comm -23 <(echo "$UPDATES") <(echo "$SKIPPED"))" ]; then
+        log "A closed issue already listed these updates. Leaving it closed until upstream ships more."
+    else
+        act gh issue create --title "$RELEASE_TITLE" --body "$(release_body "$UPDATES")"
     fi
 fi
 

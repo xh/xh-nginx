@@ -1,8 +1,8 @@
 name: Check nginx
 
 # Daily check for nginx updates to the version pinned in the Dockerfile. Opens a PR to develop for
-# a newer patch on the pinned line, or for upstream base image rebuilds with OS and package
-# updates that our latest release doesn't have yet. Opens an issue for a newer major.minor line.
+# a newer patch on the pinned line. Opens a "Release due" issue when our latest release lacks a
+# newer pinned nginx or upstream OS package updates. Opens an issue for a newer major.minor line.
 # Also opens one if develop has been idle long enough that GitHub may disable scheduled workflows.
 # See .github/scripts/check-nginx.sh for details.
 #
@@ -24,7 +24,7 @@ on:
         type: string
         default: ''
       compare-release:
-        description: 'Test only. Compare upstream base images against this release (e.g. "3.4.0") instead of latest. Use with dry run.'
+        description: 'Test only. Compare against this release (e.g. "3.5.0") instead of latest. Use with dry run.'
         type: string
         default: ''
 
@@ -55,8 +55,8 @@ jobs:
           # Push PR branches as the bot.
           token: ${{ steps.bot-token.outputs.token }}
 
-      # Log in so image inspection avoids the anonymous pull rate limit. The token is only used to
-      # read. Hub API calls stay anonymous, and fail the run if limited.
+      # Log in so the image checks avoid the anonymous pull rate limit. They pull four images a run.
+      # The token is only used to read. Hub API calls stay anonymous, and fail the run if limited.
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
