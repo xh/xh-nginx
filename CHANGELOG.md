@@ -13,8 +13,14 @@ with a separate `1.x-brotli` version line — see entries below.
 
 ## next - under development
 
-* Pinned nginx `1.31.10` (from `1.31.9`), with 1 nginx security fix.
 * nginx `1.31` tags (`next`, `next-brotli`)
+
+## 3.5.1 - 2026-11-24
+
+* nginx `1.31.10` tags (`3.5.1`, `latest`, `3.5.1-brotli`, `latest-brotli`), with 1 nginx security
+  fix (CVE-2026-132779).
+* Rebuilt on the latest upstream base images. The standard image picks up the Debian zlib security
+  update (DSA-6613).
 
 ## 3.5.0 - 2026-11-18
 
