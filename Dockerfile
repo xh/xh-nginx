@@ -4,7 +4,7 @@
 #
 # NGINX_VERSION is the single place the pinned nginx release lives. Release builds use this default
 # as-is. `next` builds override it with its major.minor (e.g. `1.31`) to float on upstream patches.
-ARG NGINX_VERSION=1.31.9
+ARG NGINX_VERSION=1.31.10
 
 
 #-----------------------------------------------------------------------------------------------
