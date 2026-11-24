@@ -13,6 +13,7 @@ with a separate `1.x-brotli` version line — see entries below.
 
 ## next - under development
 
+* Pinned nginx `1.31.10` (from `1.31.9`), with 1 nginx security fix.
 * nginx `1.31` tags (`next`, `next-brotli`)
 
 ## 3.5.0 - 2026-11-18
