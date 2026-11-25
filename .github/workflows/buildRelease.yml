@@ -115,3 +115,43 @@ jobs:
           is-hotfix: ${{ inputs.is-hotfix }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Posts to Slack when this workflow fails, so a broken run is noticed. Needs no checkout, so
+  # it still works when the failure is early.
+  alert:
+    needs: [validate, build, release]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Alert Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TITLE: ":rotating_light: xh-nginx: ${{ github.workflow }} failed"
+          BODY: "The `${{ github.workflow }}` workflow failed. Trigger: `${{ github.event_name }}` on `${{ github.ref_name }}`. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View the run log>."
+          FOOTER: "Posted on every failed run of this workflow."
+        run: |
+          jq -n --arg title "$TITLE" --arg body "$BODY" --arg footer "$FOOTER" '{text: $title, blocks: [
+              {type: "header", text: {type: "plain_text", text: $title, emoji: true}},
+              {type: "section", text: {type: "mrkdwn", text: $body}},
+              {type: "context", elements: [{type: "mrkdwn", text: $footer}]}
+            ]}' | curl -fsS --retry 3 -X POST -H 'Content-Type: application/json' --data @- "$SLACK_WEBHOOK_URL"
+
+  # Announces each release in Slack, as a record that releases are happening.
+  announce:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Announce in Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TITLE: ":rocket: xh-nginx ${{ inputs.version }} released"
+          BODY: "Published to Docker Hub as `${{ inputs.version }}`, `${{ inputs.version }}-brotli`, `latest` and `latest-brotli`. <${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ inputs.version }}|Release notes>."
+          FOOTER: "Posted by the Build Release workflow."
+        run: |
+          jq -n --arg title "$TITLE" --arg body "$BODY" --arg footer "$FOOTER" '{text: $title, blocks: [
+              {type: "header", text: {type: "plain_text", text: $title, emoji: true}},
+              {type: "section", text: {type: "mrkdwn", text: $body}},
+              {type: "context", elements: [{type: "mrkdwn", text: $footer}]}
+            ]}' | curl -fsS --retry 3 -X POST -H 'Content-Type: application/json' --data @- "$SLACK_WEBHOOK_URL"

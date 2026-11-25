@@ -6,6 +6,9 @@ name: Check nginx
 # Also opens one if develop has been idle long enough that GitHub may disable scheduled workflows.
 # See .github/scripts/check-nginx.sh for details.
 #
+# Then posts to the repo's Slack channel (the SLACK_WEBHOOK_URL secret) when a PR or bot issue has
+# waited 3+ days, and on any failed run. See .github/scripts/slack-report.sh.
+#
 # Branches, PRs and issues all come from the org's XH Build Bot GitHub App. Its credentials are
 # the org-level XH_BUILD_BOT_CLIENT_ID variable and XH_BUILD_BOT_PRIVATE_KEY secret.
 
@@ -27,6 +30,10 @@ on:
         description: 'Test only. Compare against this release (e.g. "3.5.0") instead of latest. Use with dry run.'
         type: string
         default: ''
+      slack-report:
+        description: 'Test only. Post the Slack report now, even if nothing has waited 3+ days. With dry run, print it instead.'
+        type: boolean
+        default: false
 
 # The workflow's own token is unused. The bot token covers everything.
 permissions: {}
@@ -64,9 +71,40 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Check for nginx updates
+        id: check
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
           DRY_RUN: ${{ inputs.dry-run && '1' || '0' }}
           PINNED_OVERRIDE: ${{ inputs.pinned-override }}
           COMPARE_RELEASE: ${{ inputs.compare-release || 'latest' }}
         run: .github/scripts/check-nginx.sh
+
+      - name: Report to Slack
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DRY_RUN: ${{ inputs.dry-run && '1' || '0' }}
+          FORCE_REPORT: ${{ inputs.slack-report && '1' || '0' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: .github/scripts/slack-report.sh
+
+  # Posts to Slack when this workflow fails, so a broken run is noticed. Needs no checkout, so
+  # it still works when the failure is early.
+  alert:
+    needs: [check]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Alert Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          TITLE: ":rotating_light: xh-nginx: ${{ github.workflow }} failed"
+          BODY: "The `${{ github.workflow }}` workflow failed. Trigger: `${{ github.event_name }}` on `${{ github.ref_name }}`. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View the run log>."
+          FOOTER: "Posted on every failed run of this workflow."
+        run: |
+          jq -n --arg title "$TITLE" --arg body "$BODY" --arg footer "$FOOTER" '{text: $title, blocks: [
+              {type: "header", text: {type: "plain_text", text: $title, emoji: true}},
+              {type: "section", text: {type: "mrkdwn", text: $body}},
+              {type: "context", elements: [{type: "mrkdwn", text: $footer}]}
+            ]}' | curl -fsS --retry 3 -X POST -H 'Content-Type: application/json' --data @- "$SLACK_WEBHOOK_URL"

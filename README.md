@@ -84,6 +84,11 @@ it with attestations, and moves tags only after confirming the pushed image is t
   issue when a newer nginx major.minor line is available, and another when `develop` has gone 45 days without a
   commit. GitHub disables scheduled workflows in public repos after 60 days without activity, so that issue is the
   cue to merge something before `next` stops rebuilding.
+- **Slack alerts** - post to #docker-image-updates via the `SLACK_WEBHOOK_URL` secret. Each post calls for action,
+  so the channel stays quiet otherwise. After each daily check, [`slack-report.sh`](./.github/scripts/slack-report.sh)
+  posts when an open PR or bot issue has waited 3+ days, and repeats daily until it is merged or closed. Each workflow
+  posts when a run fails, and `buildRelease.yml` announces each release. New PRs and issues reach the channel as they
+  open, via the GitHub app for Slack.
 
 ----
 
