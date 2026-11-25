@@ -5,7 +5,8 @@ name: Build Release
 # variants in parallel against the pinned nginx patch version (the
 # NGINX_VERSION default in the Dockerfile), pushes to Docker Hub with both the
 # immutable `<xh-release><suffix>` tag and the floating `latest<suffix>` tag,
-# then tags the commit and creates a GitHub release.
+# then tags the commit and creates a GitHub release. A hotfix gets only the
+# immutable tag, so `latest` stays on the newest release.
 # See README / CHANGELOG for the currently supported variants.
 #
 # To release with a newer nginx patch: bump NGINX_VERSION in the Dockerfile,
@@ -20,7 +21,7 @@ on:
         required: true
         type: string
       is-hotfix:
-        description: 'As hotfix. Check when releasing a hotfix to a version other than the latest.'
+        description: 'As hotfix. Check when releasing a hotfix to a version other than the latest. Does not move the latest tags.'
         required: true
         default: false
         type: boolean
@@ -88,11 +89,15 @@ jobs:
           TARGET: ${{ matrix.variant.target }}
           VERSION_TAG: xhio/xh-nginx:${{ inputs.version }}${{ matrix.variant.tag-suffix }}
           LATEST_TAG: xhio/xh-nginx:latest${{ matrix.variant.tag-suffix }}
+          IS_HOTFIX: ${{ inputs.is-hotfix }}
         run: |
+          # A hotfix patches an older release, so it must not move the latest tags.
+          TAGS=("$VERSION_TAG")
+          [ "$IS_HOTFIX" = true ] || TAGS+=("$LATEST_TAG")
           # Build, smoke test, push with attestations, and tag only once the pushed image is
           # confirmed to be the tested one. See the script for details. Builds the Dockerfile's
           # pinned NGINX_VERSION.
-          .github/scripts/build-image.sh "$TARGET" "$VERSION_TAG" "$LATEST_TAG"
+          .github/scripts/build-image.sh "$TARGET" "${TAGS[@]}"
 
   release:
     needs: build
@@ -147,9 +152,17 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           TITLE: ":rocket: xh-nginx ${{ inputs.version }} released"
-          BODY: "Published to Docker Hub as `${{ inputs.version }}`, `${{ inputs.version }}-brotli`, `latest` and `latest-brotli`. <${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ inputs.version }}|Release notes>."
+          VERSION: ${{ inputs.version }}
+          IS_HOTFIX: ${{ inputs.is-hotfix }}
+          NOTES_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ inputs.version }}
           FOOTER: "Posted by the Build Release workflow."
         run: |
+          if [ "$IS_HOTFIX" = true ]; then
+            TAGS="\`$VERSION\` and \`$VERSION-brotli\`. A hotfix, so \`latest\` and \`latest-brotli\` are unchanged"
+          else
+            TAGS="\`$VERSION\`, \`$VERSION-brotli\`, \`latest\` and \`latest-brotli\`"
+          fi
+          BODY="Published to Docker Hub as $TAGS. <$NOTES_URL|Release notes>."
           jq -n --arg title "$TITLE" --arg body "$BODY" --arg footer "$FOOTER" '{text: $title, blocks: [
               {type: "header", text: {type: "plain_text", text: $title, emoji: true}},
               {type: "section", text: {type: "mrkdwn", text: $body}},

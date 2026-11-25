@@ -73,6 +73,8 @@ it with attestations, and moves tags only after confirming the pushed image is t
   pushes the `release` variants on the pinned nginx version, then creates the corresponding git tag and GitHub release.
   To release with a newer nginx patch, bump `NGINX_VERSION` in the `Dockerfile` and update `CHANGELOG.md` in a normal
   PR before dispatching the workflow.
+  A hotfix release, to a version older than the latest, gets only its numbered tags. `latest` stays on the newest
+  release.
 - **`checkNginx.yml`** - runs daily and on manual dispatch, via [`check-nginx.sh`](./.github/scripts/check-nginx.sh).
   When both base images publish a newer nginx patch on the pinned line, it opens a PR to `develop` that bumps
   `NGINX_VERSION` and adds a `CHANGELOG.md` line. It opens a "Release due" issue when `latest` lacks updates that a
